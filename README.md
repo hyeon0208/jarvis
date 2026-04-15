@@ -148,10 +148,10 @@ jarvis/
 - [x] Phase 1-C: 자동 메모리 훅 + Dreaming
 - [x] Phase 2: 자율 스킬 생성 시스템 + 보안 스캔
 - [x] Phase 3: IntentGate 스킬 + 스마트 라우팅 설정
-- [ ] Phase 4-A: 게이트웨이 코어 + 프로필/인증
-- [ ] Phase 4-B: Docker 샌드박스 풀
-- [ ] Phase 4-C: 채널 어댑터 (Telegram/Discord/Slack)
-- [ ] Phase 4-D: 크론잡 시스템
+- [x] Phase 4-A: 게이트웨이 코어 + 프로필/인증 + DM 페어링
+- [x] Phase 4-B: Docker 샌드박스 설정 생성기
+- [x] Phase 4-C: 채널 라우팅 + MCP 도구 (10개 테스트)
+- [x] Phase 4-D: 크론잡 시스템 (자연어 → 크론 표현식)
 - [ ] Phase 5: 멀티모델 에이전트 (후순위)
 
 ## 영감을 준 프로젝트
