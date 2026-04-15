@@ -144,10 +144,10 @@ jarvis/
 ## 로드맵
 
 - [x] Phase 1-A: 프로젝트 스캐폴딩
-- [ ] Phase 1-B: 메모리 MCP 서버 구현
-- [ ] Phase 1-C: 자동 메모리 훅 + Dreaming
-- [ ] Phase 2: 자율 스킬 생성 시스템
-- [ ] Phase 3: IntentGate 스킬
+- [x] Phase 1-B: 메모리 MCP 서버 구현 (SQLite + FTS5, 14개 테스트)
+- [x] Phase 1-C: 자동 메모리 훅 + Dreaming
+- [x] Phase 2: 자율 스킬 생성 시스템 + 보안 스캔
+- [x] Phase 3: IntentGate 스킬 + 스마트 라우팅 설정
 - [ ] Phase 4-A: 게이트웨이 코어 + 프로필/인증
 - [ ] Phase 4-B: Docker 샌드박스 풀
 - [ ] Phase 4-C: 채널 어댑터 (Telegram/Discord/Slack)
