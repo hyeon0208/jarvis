@@ -1,0 +1,23 @@
+{
+  "name": "@jarvis/gateway-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "discord.js": "^14.18.0",
+    "@slack/bolt": "^4.3.0",
+    "telegraf": "^4.16.3",
+    "zod": "^3.24.4",
+    "dockerode": "^4.0.7"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.38"
+  }
+}

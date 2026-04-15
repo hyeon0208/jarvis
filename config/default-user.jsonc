@@ -1,0 +1,27 @@
+// 새 유저 등록 시 기본 설정 템플릿
+{
+  "user_id": "",
+  "name": "",
+  "profile": "observer",
+  "channel": "",
+  "paired": false,
+  "paired_at": null,
+
+  // 개인화 설정 (프로필 내에서 자유 커스터마이징)
+  "personality": {
+    "tone": "friendly",
+    "language": "ko",
+    "verbosity": "normal",
+    "emoji": false,
+    "nickname": "Jarvis"
+  },
+
+  // 개인 크론잡
+  "cron_jobs": [],
+
+  // 개인 메모리 (다른 유저와 격리)
+  "memory": {
+    "preferences": {},
+    "context": {}
+  }
+}

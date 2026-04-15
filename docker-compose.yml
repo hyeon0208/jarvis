@@ -1,0 +1,14 @@
+services:
+  jarvis-sandbox:
+    build:
+      context: ./packages/sandbox
+      dockerfile: Dockerfile
+    image: jarvis-sandbox:latest
+    # 실행 시 per-user 컨테이너로 생성됨 (이 서비스는 이미지 빌드용)
+    profiles:
+      - build-only
+
+networks:
+  jarvis-sandbox-net:
+    driver: bridge
+    internal: true  # 외부 네트워크 접근 차단
