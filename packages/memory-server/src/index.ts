@@ -336,6 +336,144 @@ server.tool(
 );
 
 // ============================================================
+// 스킬 인덱스 동기화 (scan-skills.js 결과 반영)
+// ============================================================
+
+server.tool(
+  "jarvis_sync_skills",
+  "스킬 스캔 결과(skill-index.json)를 절차적 메모리에 동기화합니다",
+  {},
+  async () => {
+    const indexPath = `${process.env.HOME}/.jarvis/skill-index.json`;
+    try {
+      const { existsSync, readFileSync } = await import("node:fs");
+      if (!existsSync(indexPath)) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "skill-index.json이 없습니다. 먼저 scan-skills.js를 실행하세요.",
+            },
+          ],
+        };
+      }
+
+      const index = JSON.parse(readFileSync(indexPath, "utf-8"));
+      let synced = 0;
+
+      for (const skill of index.skills) {
+        procedural.register(
+          skill.skill_name,
+          skill.skill_path,
+          skill.description,
+          skill.tags,
+        );
+        synced++;
+      }
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              status: "synced",
+              total: synced,
+              scanned_at: index.scanned_at,
+            }),
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `동기화 실패: ${err instanceof Error ? err.message : String(err)}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+// ============================================================
+// 세션 로그 동기화 (auto-memory.js 결과 반영)
+// ============================================================
+
+server.tool(
+  "jarvis_sync_sessions",
+  "세션 로그 파일(~/.jarvis/sessions/)을 메모리 DB에 동기화합니다",
+  {},
+  async () => {
+    const sessionsDir = `${process.env.HOME}/.jarvis/sessions`;
+    try {
+      const { existsSync, readdirSync, readFileSync, writeFileSync } =
+        await import("node:fs");
+
+      if (!existsSync(sessionsDir)) {
+        return {
+          content: [
+            { type: "text" as const, text: "세션 로그가 없습니다." },
+          ],
+        };
+      }
+
+      const files = readdirSync(sessionsDir).filter((f: string) =>
+        f.endsWith(".json"),
+      );
+      let synced = 0;
+
+      for (const file of files) {
+        try {
+          const filePath = `${sessionsDir}/${file}`;
+          const session = JSON.parse(readFileSync(filePath, "utf-8"));
+          if (session.synced) continue;
+
+          // 세션 DB에 기록
+          sessions.startSession(session.session_id, "owner");
+          sessions.endSession(
+            session.session_id,
+            `도구 ${session.tool_count}회, 파일 ${session.file_changes}건 변경. 수정 파일: ${(session.files_modified || []).join(", ")}`,
+            session.tool_count,
+            session.file_changes,
+          );
+
+          // 동기화 마킹
+          session.synced = true;
+          session.synced_at = new Date().toISOString();
+          writeFileSync(filePath, JSON.stringify(session, null, 2));
+          synced++;
+        } catch {
+          // 개별 파일 실패 무시
+        }
+      }
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              status: "synced",
+              total_files: files.length,
+              newly_synced: synced,
+            }),
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `동기화 실패: ${err instanceof Error ? err.message : String(err)}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+// ============================================================
 // 통계
 // ============================================================
 

@@ -1,54 +1,74 @@
 #!/usr/bin/env node
 
 /**
- * Jarvis Skill Nudge Hook
+ * Jarvis Skill Nudge Hook (PostToolUse)
  *
- * PostToolUse 훅으로 등록하여, 세션의 복잡도를 추적하고
- * 복잡한 작업 후 스킬 생성을 제안합니다.
+ * 세션의 복잡도를 추적하고, 복잡한 작업 후 스킬 생성을 제안합니다.
+ * auto-memory.js가 기록한 세션 상태를 읽어 판단합니다.
  *
- * 설치: settings.json의 hooks.PostToolUse에 추가
+ * 넛지 조건:
+ * - 도구 호출 15회 이상
+ * - 파일 변경 5개 이상
+ * - 경과 시간 30분 이상
+ *
+ * 넛지는 조건 충족 후 최초 1회만 표시합니다.
  */
 
-const STATE_FILE = `${process.env.HOME}/.jarvis/session-complexity.json`;
+const fs = require("fs");
+const path = require("path");
 
-async function main() {
-  const fs = await import("fs");
+const SESSIONS_DIR = path.join(process.env.HOME || "~", ".jarvis", "sessions");
+const SESSION_ID = process.env.CLAUDE_SESSION_ID || "";
+const SESSION_FILE = path.join(SESSIONS_DIR, `${SESSION_ID}.json`);
+const NUDGE_FILE = path.join(SESSIONS_DIR, `${SESSION_ID}.nudged`);
 
-  // 상태 파일 로드 또는 초기화
-  let state = { toolCalls: 0, fileChanges: 0, startTime: Date.now() };
+// 복잡도 임계값
+const TOOL_THRESHOLD = 15;
+const FILE_THRESHOLD = 5;
+const TIME_THRESHOLD_MIN = 30;
+
+function main() {
+  if (!SESSION_ID || !fs.existsSync(SESSION_FILE)) return;
+
+  // 이미 넛지했으면 스킵
+  if (fs.existsSync(NUDGE_FILE)) return;
+
+  let session;
   try {
-    if (fs.existsSync(STATE_FILE)) {
-      state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"));
-    }
+    session = JSON.parse(fs.readFileSync(SESSION_FILE, "utf-8"));
   } catch {
-    // 첫 실행 시 무시
+    return;
   }
 
-  // 카운터 증가
-  state.toolCalls++;
+  const elapsed =
+    (Date.now() - new Date(session.started_at).getTime()) / 1000 / 60;
 
-  // 파일 변경 감지 (Edit/Write 도구)
-  const toolName = process.env.CLAUDE_TOOL_NAME || "";
-  if (["Edit", "Write", "MultiEdit"].includes(toolName)) {
-    state.fileChanges++;
-  }
-
-  // 상태 저장
-  const dir = `${process.env.HOME}/.jarvis`;
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(STATE_FILE, JSON.stringify(state));
-
-  // 복잡도 체크: 도구 10회+ 또는 파일 변경 5개+
-  const elapsed = (Date.now() - state.startTime) / 1000 / 60; // 분
   const isComplex =
-    state.toolCalls >= 10 || state.fileChanges >= 5 || elapsed >= 30;
+    session.tool_count >= TOOL_THRESHOLD ||
+    session.file_changes >= FILE_THRESHOLD ||
+    elapsed >= TIME_THRESHOLD_MIN;
 
-  if (isComplex && state.toolCalls % 10 === 0) {
-    // 10회마다 한 번 넛지 (너무 자주 방해하지 않기 위해)
-    console.log(
-      `[Jarvis] 복잡한 작업이 감지되었습니다 (도구 ${state.toolCalls}회, 파일 변경 ${state.fileChanges}건, ${Math.round(elapsed)}분 경과). /skill-generator 로 스킬화를 고려해보세요.`,
-    );
-  }
+  if (!isComplex) return;
+
+  // 넛지 마커 생성 (세션당 1회만)
+  fs.writeFileSync(NUDGE_FILE, new Date().toISOString());
+
+  // 넛지 메시지 출력 (Claude Code가 사용자에게 전달)
+  const stats = [
+    `도구 ${session.tool_count}회`,
+    `파일 변경 ${session.file_changes}건`,
+    `${Math.round(elapsed)}분 경과`,
+  ].join(", ");
+
+  console.log(
+    `[Jarvis] 복잡한 작업이 감지되었습니다 (${stats}). ` +
+      `이 작업을 스킬로 저장하면 다음에 재사용할 수 있습니다. ` +
+      `/skill-generator 를 실행해보세요.`,
+  );
 }
 
-main().catch(() => {});
+try {
+  main();
+} catch {
+  // 훅 실패가 Claude Code를 방해하지 않도록
+}
