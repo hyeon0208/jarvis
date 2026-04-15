@@ -1,0 +1,64 @@
+// Jarvis 스마트 라우팅 설정
+// 멀티모델 활성화 시 카테고리별 최적 모델을 자동 선택합니다
+// 현재는 Claude 단일 모델로 동작하므로, 이 설정은 참조용입니다
+{
+  // 카테고리 → 모델 매핑
+  "categories": {
+    "coding": {
+      "model": "claude-opus",
+      "reason": "코드 이해력, 안전성, 긴 컨텍스트"
+    },
+    "debugging": {
+      "model": "claude-opus",
+      "fallback": "gpt",
+      "reason": "깊은 분석 + 창의적 문제해결"
+    },
+    "refactoring": {
+      "model": "claude-opus",
+      "reason": "코드 구조 이해, SOLID 적용"
+    },
+    "research": {
+      "model": "gemini-pro",
+      "reason": "긴 컨텍스트(1M+), 검색 통합"
+    },
+    "review": {
+      "model": "claude-sonnet",
+      "reason": "분석력, 비용 효율"
+    },
+    "question": {
+      "model": "gemini-flash",
+      "reason": "빠른 응답, 저비용"
+    },
+    "design": {
+      "model": "claude-opus",
+      "reason": "아키텍처 설계 전문성"
+    },
+    "devops": {
+      "model": "claude-sonnet",
+      "reason": "인프라 안전성"
+    },
+    "test": {
+      "model": "claude-opus",
+      "reason": "정확한 테스트 생성"
+    }
+  },
+
+  // 복잡도별 행동
+  "complexity": {
+    "quick": {
+      "preload_skills": false,
+      "preload_memory": false,
+      "plan_required": false
+    },
+    "standard": {
+      "preload_skills": true,
+      "preload_memory": true,
+      "plan_required": false
+    },
+    "deep": {
+      "preload_skills": true,
+      "preload_memory": true,
+      "plan_required": true
+    }
+  }
+}
