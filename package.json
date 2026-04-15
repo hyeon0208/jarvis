@@ -9,6 +9,12 @@
   "scripts": {
     "dev:memory": "bun run --watch packages/memory-server/src/index.ts",
     "dev:gateway": "bun run --watch packages/gateway-server/src/index.ts",
+    "daemon": "bun run packages/gateway-server/src/daemon.ts",
+    "daemon:start": "./jarvis.sh start",
+    "daemon:stop": "./jarvis.sh stop",
+    "daemon:status": "./jarvis.sh status",
+    "daemon:logs": "./jarvis.sh logs",
+    "daemon:install": "./jarvis.sh install",
     "build": "bun run --filter '*' build",
     "test": "bun test",
     "lint": "bunx oxlint .",

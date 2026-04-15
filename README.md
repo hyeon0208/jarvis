@@ -103,19 +103,34 @@ Jarvis는 [Claude Code](https://claude.ai/claude-code)를 기반으로 구축된
 
 ---
 
-### 4. 멀티채널 게이트웨이
+### 4. 멀티채널 게이트웨이 + 백그라운드 데몬
 
-팀원이 자신의 메시징 채널에서 직접 요청하고 응답을 받습니다.
+**Jarvis Daemon**이 백그라운드에서 상시 대기하며, 채널 메시지를 수신 → `claude` CLI를 자동 호출합니다.
 
 ```
-팀원 (Telegram/Discord/Slack)
-    │
-    ▼
-Jarvis Gateway (인증 → 권한 체크 → 라우팅)
-    │
-    ├── 미인증 → 페어링 코드 발급
-    ├── 시스템 커맨드 → 즉시 응답
-    └── 일반 요청 → 프로필 권한 내에서 처리 후 응답
+Jarvis Daemon (백그라운드, launchd로 자동 시작)
+│
+├── Telegram/Discord/Slack 봇 (상시 리스닝)
+│
+├── 메시지 수신 시:
+│   1. Gateway 라우팅 (인증/권한 체크)
+│   2. 프로필 → 허용 도구 자동 매핑 (승인 불필요)
+│   3. claude -p "{요청}" --allowedTools "Read,Grep,..."
+│   4. 응답을 해당 채널로 전송
+│
+└── 별도 터미널 없이 24시간 동작
+```
+
+**프로필별 자동 승인**: 외부 채널 요청 시 매번 허락을 받지 않고, 프로필 권한 범위 내에서 `--allowedTools`로 사전 매핑되어 자동 실행됩니다.
+
+**데몬 관리**:
+```bash
+./jarvis.sh start      # 백그라운드 시작
+./jarvis.sh stop       # 종료
+./jarvis.sh status     # 상태 확인
+./jarvis.sh logs       # 실시간 로그
+./jarvis.sh install    # 맥 부팅 시 자동 시작 (launchd)
+./jarvis.sh uninstall  # 자동 시작 해제
 ```
 
 **DM 페어링**: 알 수 없는 발신자가 메시지를 보내면 6자리 페어링 코드를 발급. Owner가 터미널에서 승인해야 사용 가능.

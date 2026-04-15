@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jarvis.daemon</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/hyeonjun/.bun/bin/bun</string>
+        <string>run</string>
+        <string>/Users/hyeonjun/jarvis/packages/gateway-server/src/daemon.ts</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/hyeonjun/.jarvis/daemon.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/hyeonjun/.jarvis/daemon.stderr.log</string>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/hyeonjun/jarvis</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/hyeonjun</string>
+        <key>PATH</key>
+        <string>/Users/hyeonjun/.bun/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
