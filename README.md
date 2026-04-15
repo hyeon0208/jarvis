@@ -121,6 +121,7 @@ cp .env.example .env
 # 5. 스킬 심볼릭 링크
 ln -s ~/jarvis/skills/jarvis ~/.claude/skills/jarvis
 ln -s ~/jarvis/skills/skill-generator ~/.claude/skills/skill-generator
+ln -s ~/jarvis/skills/jarvis-telegram ~/.claude/skills/jarvis-telegram
 
 # 6. (선택) Docker 샌드박스 빌드
 bun run sandbox:build
@@ -150,8 +151,9 @@ jarvis/
 - [x] Phase 3: IntentGate 스킬 + 스마트 라우팅 설정
 - [x] Phase 4-A: 게이트웨이 코어 + 프로필/인증 + DM 페어링
 - [x] Phase 4-B: Docker 샌드박스 설정 생성기
-- [x] Phase 4-C: 채널 라우팅 + MCP 도구 (10개 테스트)
+- [x] Phase 4-C: 채널 어댑터 (Telegram/Discord/Slack) + MCP 도구
 - [x] Phase 4-D: 크론잡 시스템 (자연어 → 크론 표현식)
+- [x] Phase 4-E: Claude Code 설정 등록 + 스킬 심볼릭 링크
 - [ ] Phase 5: 멀티모델 에이전트 (후순위)
 
 ## 영감을 준 프로젝트
