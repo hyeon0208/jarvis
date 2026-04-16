@@ -182,24 +182,26 @@ case "${1:-}" in
   restart)   cmd_restart ;;
   status)    cmd_status ;;
   logs)      cmd_logs "${2:-50}" ;;
-  install)   cmd_install ;;
-  uninstall) cmd_uninstall ;;
-  chat)      cmd_chat ;;
-  ask)       shift; cmd_ask "$@" ;;
+  install)          cmd_install ;;
+  uninstall)        cmd_uninstall ;;
+  chat)             cmd_chat ;;
+  ask)              shift; cmd_ask "$@" ;;
+  create-profile)   bun run "$HOME/jarvis/scripts/create-profile.ts" ;;
   *)
     echo "Jarvis"
     echo ""
-    echo "사용법: $0 {chat|ask|start|stop|restart|status|logs|install|uninstall}"
+    echo "사용법: $0 {chat|ask|start|stop|restart|status|logs|install|uninstall|create-profile}"
     echo ""
-    echo "  ${GREEN}chat${NC}       Jarvis와 대화 모드 시작 (인터랙티브)"
-    echo "  ${GREEN}ask${NC} \"...\"  Jarvis에게 한 번 질문하고 답변 받기"
+    echo "  ${GREEN}chat${NC}             Jarvis와 대화 모드 시작"
+    echo "  ${GREEN}ask${NC} \"...\"        한 번 질문하고 답변 받기"
+    echo "  ${GREEN}create-profile${NC}   프로필 생성 마법사"
     echo ""
-    echo "  start      백그라운드 데몬 시작"
-    echo "  stop       데몬 종료"
-    echo "  restart    데몬 재시작"
-    echo "  status     실행 상태 확인"
-    echo "  logs [N]   데몬 로그 실시간 표시"
-    echo "  install    맥 부팅 시 자동 시작 등록 (launchd)"
-    echo "  uninstall  자동 시작 해제"
+    echo "  start            백그라운드 데몬 시작"
+    echo "  stop             데몬 종료"
+    echo "  restart          데몬 재시작"
+    echo "  status           실행 상태 확인"
+    echo "  logs [N]         데몬 로그 실시간 표시"
+    echo "  install          맥 부팅 시 자동 시작 등록 (launchd)"
+    echo "  uninstall        자동 시작 해제"
     ;;
 esac
