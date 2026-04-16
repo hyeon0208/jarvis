@@ -229,16 +229,30 @@ async function main() {
     systemPrompt = await ask("시스템 프롬프트:");
   }
 
-  // 7. 타임아웃
+  // 7. 모델 선택
+  console.log("\n\x1b[32m── 모델 선택 ──\x1b[0m");
+  console.log("\x1b[33m이 프로필의 팀원이 요청할 때 사용할 Claude 모델입니다.");
+  console.log("강력한 모델일수록 응답 품질이 높지만 비용도 높습니다.\x1b[0m\n");
+  const modelChoice = await askChoice("사용할 모델을 선택하세요:", [
+    "opus   — 가장 강력, 복잡한 코딩/설계에 적합",
+    "sonnet — 균형 잡힌 성능, 일반 개발 작업에 적합 (기본값)",
+    "haiku  — 가장 빠르고 저렴, 단순 질문/검색에 적합",
+    "기본값 사용 (Claude Code 설정에 따름)",
+  ]);
+  const modelMap = ["opus", "sonnet", "haiku", ""];
+  const model = modelMap[modelChoice];
+
+  // 8. 타임아웃
   console.log("\n\x1b[33mClaude가 한 요청을 처리하는 최대 시간입니다.");
   console.log("초과하면 자동 중단됩니다. (60=1분, 300=5분, 600=10분)\x1b[0m");
   const timeoutStr = await ask("타임아웃 (초, 기본 300):");
   const timeout = Number(timeoutStr) || 300;
 
-  // 8. 확인
+  // 9. 확인
   console.log("\n\x1b[32m── 프로필 요약 ──\x1b[0m");
   console.log(`이름:       ${name}`);
   console.log(`설명:       ${description}`);
+  console.log(`모델:       ${model || "(기본값)"}`);
   console.log(`허용 도구:  ${allowedTools.length}개`);
   console.log(`차단 도구:  ${disallowedTools.length}개`);
   console.log(`디렉토리:   ${addDirs.length > 0 ? addDirs.join(", ") : "(제한 없음)"}`);
@@ -251,10 +265,11 @@ async function main() {
     process.exit(0);
   }
 
-  // 9. 저장
+  // 10. 저장
   const profile: Record<string, unknown> = {
     description,
     claude: {
+      ...(model ? { model } : {}),
       allowed_tools: allowedTools,
       disallowed_tools: disallowedTools,
       ...(addDirs.length > 0 ? { add_dirs: addDirs } : {}),
