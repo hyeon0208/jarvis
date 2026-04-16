@@ -17,7 +17,7 @@ import { routeMessage, type IncomingMessage } from "./router.js";
 import { buildClaudeArgs, buildPersonalityPrompt } from "./permissions.js";
 import { loadUserConfig } from "./auth.js";
 import { addCronJob, listCronJobs, deleteCronJob, toggleCronJob } from "./cron.js";
-import { createTaskWorktree, cleanupWorktree, cleanupOldWorktrees } from "./worktree.js";
+// worktree는 workflow.ts가 관리 (router → workflow → worktree)
 
 // --- 설정 ---
 const JARVIS_DIR = join(process.env.HOME ?? "~", ".jarvis");
@@ -68,16 +68,8 @@ async function executeWithClaude(
   userId: string,
   personality?: Record<string, unknown>,
   userName?: string,
+  workDir?: string,
 ): Promise<string> {
-  // 작업별 worktree 생성 (프로젝트 디렉토리 설정 시)
-  let workDir: string | undefined;
-  let worktreePath: string | undefined;
-  if (PROJECT_DIR && profileName !== "admin") {
-    const wt = createTaskWorktree(PROJECT_DIR, userId);
-    workDir = wt.path;
-    worktreePath = wt.created ? wt.path : undefined;
-    log("INFO", `worktree: ${userId} → ${wt.path} (${wt.branch})`);
-  }
 
   const personalityPrompt = buildPersonalityPrompt(
     personality ?? {},
@@ -169,12 +161,37 @@ async function handleMessage(incoming: IncomingMessage): Promise<string> {
   // 1. 게이트웨이 라우팅 (인증/권한 체크)
   const routeResult = routeMessage(incoming);
 
-  // 2. 즉시 응답 (페어링/권한거부/시스템커맨드)
-  if (routeResult.action !== "execute") {
+  // 2. 즉시 응답 (페어링/권한거부/시스템커맨드/워크플로우 대화)
+  if (routeResult.action === "respond" ||
+      routeResult.action === "pairing_required" ||
+      routeResult.action === "permission_denied") {
     return routeResult.response ?? "";
   }
 
-  // 3. 크론잡 커맨드 처리
+  const profileName = routeResult.profile ?? "observer";
+  const userConfig = routeResult.user_config;
+  const personality = userConfig?.personality as Record<string, unknown> | undefined;
+  const userName = (userConfig?.name as string) ?? incoming.display_name;
+
+  // 3. 개발 워크플로우 실행
+  if (routeResult.action === "dev_execute") {
+    const preMessage = routeResult.response ?? "";
+
+    const response = await executeWithClaude(
+      routeResult.task ?? incoming.message,
+      profileName,
+      incoming.user_id,
+      personality,
+      userName,
+      routeResult.workDir,
+    );
+
+    return preMessage
+      ? `${preMessage}\n\n---\n\n${truncate(response)}`
+      : truncate(response);
+  }
+
+  // 4. 크론잡 커맨드 처리
   if (routeResult.response) {
     try {
       const cronCmd = JSON.parse(routeResult.response);
@@ -186,12 +203,7 @@ async function handleMessage(incoming: IncomingMessage): Promise<string> {
     }
   }
 
-  // 4. 일반 요청 → Claude CLI 실행
-  const profileName = routeResult.profile ?? "observer";
-  const userConfig = routeResult.user_config;
-  const personality = userConfig?.personality as Record<string, unknown> | undefined;
-  const userName = (userConfig?.name as string) ?? incoming.display_name;
-
+  // 5. 일반 질문 → Claude CLI 실행 (worktree 없이)
   const response = await executeWithClaude(
     incoming.message,
     profileName,
@@ -200,17 +212,14 @@ async function handleMessage(incoming: IncomingMessage): Promise<string> {
     userName,
   );
 
-  // 작업 완료 후 worktree 정리 (24시간 이상 된 것들도 함께)
-  if (PROJECT_DIR) {
-    cleanupOldWorktrees(PROJECT_DIR, 24);
-  }
+  return truncate(response);
+}
 
-  // Telegram/Discord 메시지 길이 제한 (4096자)
-  if (response.length > 4000) {
-    return response.slice(0, 3900) + "\n\n... (응답이 잘렸습니다. 상세 내용은 터미널에서 확인하세요)";
+function truncate(text: string): string {
+  if (text.length > 4000) {
+    return text.slice(0, 3900) + "\n\n... (응답이 잘렸습니다)";
   }
-
-  return response;
+  return text;
 }
 
 // --- Telegram 리스너 ---

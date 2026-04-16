@@ -1,0 +1,15 @@
+// Jarvis 프로젝트 설정
+// 개발 워크플로우에서 사용할 프로젝트 목록
+{
+  "projects": {
+    // 예시: 프로젝트 키 → 설정
+    // "backend": {
+    //   "name": "vingle-backend",
+    //   "path": "/Users/hyeonjun/Desktop/vingle-backend",
+    //   "parent_branch": "dev",
+    //   "repo": "hyeon0208/vingle-backend",
+    //   "allowed_profiles": ["admin", "developer"],
+    //   "branch_prefix": "feature"
+    // }
+  }
+}

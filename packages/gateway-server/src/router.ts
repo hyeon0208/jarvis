@@ -4,6 +4,15 @@ import {
   loadUserConfig,
 } from "./auth.js";
 import { getProfile, checkPermission } from "./profiles.js";
+import {
+  getWorkflow,
+  startWorkflow,
+  selectProject,
+  selectMode,
+  finishWorkflow,
+  cancelWorkflow,
+  getWorkflowStatus,
+} from "./workflow.js";
 
 export interface IncomingMessage {
   channel: "telegram" | "discord" | "slack";
@@ -12,14 +21,15 @@ export interface IncomingMessage {
   message: string;
   message_id?: string;
   chat_id?: string;
-  is_command?: boolean;
 }
 
 export interface RouteResult {
-  action: "respond" | "pairing_required" | "permission_denied" | "execute";
+  action: "respond" | "pairing_required" | "permission_denied" | "execute" | "dev_execute";
   response?: string;
   user_config?: Record<string, unknown>;
   profile?: string;
+  workDir?: string;  // dev_execute 시 작업 디렉토리
+  task?: string;     // dev_execute 시 작업 내용
 }
 
 /** 크론잡 커맨드 파싱 */
@@ -54,6 +64,31 @@ function parseSystemCommand(message: string): string | null {
   return null;
 }
 
+/** /dev 커맨드 파싱 */
+function parseDevCommand(message: string): {
+  subcommand: string;
+  args: string;
+} | null {
+  const trimmed = message.trim();
+
+  if (trimmed.startsWith("/dev ")) {
+    const rest = trimmed.slice(5).trim();
+
+    if (rest === "status") return { subcommand: "status", args: "" };
+    if (rest === "cancel") return { subcommand: "cancel", args: "" };
+    if (rest === "done" || rest === "pr") return { subcommand: "done", args: "" };
+
+    // /dev {작업 내용}
+    return { subcommand: "start", args: rest };
+  }
+
+  if (trimmed === "/dev") {
+    return { subcommand: "help", args: "" };
+  }
+
+  return null;
+}
+
 /** 메시지 라우팅 */
 export function routeMessage(msg: IncomingMessage): RouteResult {
   // 1. 페어링 확인
@@ -67,7 +102,7 @@ export function routeMessage(msg: IncomingMessage): RouteResult {
       action: "pairing_required",
       response:
         `안녕하세요 ${msg.display_name}님! Jarvis를 사용하려면 페어링이 필요합니다.\n\n` +
-        `페어링 코드: **${request.code}**\n\n` +
+        `페어링 코드: ${request.code}\n\n` +
         `관리자에게 이 코드를 전달하세요. 코드는 24시간 후 만료됩니다.`,
     };
   }
@@ -83,20 +118,29 @@ export function routeMessage(msg: IncomingMessage): RouteResult {
 
   const profileName = (userConfig.profile as string) ?? "observer";
 
-  // 3. 시스템 커맨드 처리
+  // 3. 워크플로우 진행 중인지 확인
+  const workflow = getWorkflow(msg.user_id);
+  if (workflow && workflow.state !== "idle" && workflow.state !== "done") {
+    return handleWorkflowInput(msg, profileName, userConfig, workflow);
+  }
+
+  // 4. /dev 커맨드
+  const devCmd = parseDevCommand(msg.message);
+  if (devCmd) {
+    return handleDevCommand(msg, profileName, userConfig, devCmd);
+  }
+
+  // 5. 시스템 커맨드
   const sysCmd = parseSystemCommand(msg.message);
   if (sysCmd) {
     return handleSystemCommand(sysCmd, msg, userConfig, profileName);
   }
 
-  // 4. 크론잡 커맨드 처리
+  // 6. 크론잡 커맨드
   const cronCmd = parseCronCommand(msg.message);
   if (cronCmd) {
     if (!checkPermission(profileName, "cron")) {
-      return {
-        action: "permission_denied",
-        response: "크론잡 권한이 없습니다.",
-      };
+      return { action: "permission_denied", response: "크론잡 권한이 없습니다." };
     }
     return {
       action: "execute",
@@ -106,7 +150,7 @@ export function routeMessage(msg: IncomingMessage): RouteResult {
     };
   }
 
-  // 5. 일반 메시지 → 실행
+  // 7. 일반 메시지 → 실행
   return {
     action: "execute",
     user_config: userConfig,
@@ -114,6 +158,114 @@ export function routeMessage(msg: IncomingMessage): RouteResult {
   };
 }
 
+/** 워크플로우 진행 중 입력 처리 */
+function handleWorkflowInput(
+  msg: IncomingMessage,
+  profileName: string,
+  userConfig: Record<string, unknown>,
+  workflow: { state: string },
+): RouteResult {
+  // 취소 커맨드
+  if (msg.message.trim() === "/dev cancel") {
+    return { action: "respond", response: cancelWorkflow(msg.user_id) };
+  }
+
+  if (workflow.state === "awaiting_project") {
+    return {
+      action: "respond",
+      response: selectProject(msg.user_id, profileName, msg.message),
+    };
+  }
+
+  if (workflow.state === "awaiting_mode") {
+    const result = selectMode(msg.user_id, msg.message);
+
+    if (!result.readyToWork) {
+      return { action: "respond", response: result.response };
+    }
+
+    // 작업 시작! dev_execute 액션으로 데몬에게 전달
+    return {
+      action: "dev_execute",
+      response: result.response,
+      user_config: userConfig,
+      profile: profileName,
+      workDir: result.workDir,
+      task: result.task,
+    };
+  }
+
+  if (workflow.state === "working") {
+    // /dev done으로 완료 요청
+    if (msg.message.trim() === "/dev done" || msg.message.trim() === "/dev pr") {
+      return { action: "respond", response: finishWorkflow(msg.user_id) };
+    }
+
+    // 작업 중 추가 요청 → 같은 worktree에서 실행
+    const currentWorkflow = getWorkflow(msg.user_id);
+    return {
+      action: "dev_execute",
+      user_config: userConfig,
+      profile: profileName,
+      workDir: currentWorkflow?.worktree_path ?? undefined,
+      task: msg.message,
+    };
+  }
+
+  return { action: "respond", response: "알 수 없는 워크플로우 상태입니다." };
+}
+
+/** /dev 커맨드 처리 */
+function handleDevCommand(
+  msg: IncomingMessage,
+  profileName: string,
+  userConfig: Record<string, unknown>,
+  cmd: { subcommand: string; args: string },
+): RouteResult {
+  if (!checkPermission(profileName, "write")) {
+    return {
+      action: "permission_denied",
+      response: "개발 워크플로우는 write 권한이 필요합니다.",
+    };
+  }
+
+  switch (cmd.subcommand) {
+    case "start":
+      return {
+        action: "respond",
+        response: startWorkflow(msg.user_id, profileName, cmd.args),
+      };
+
+    case "status":
+      return { action: "respond", response: getWorkflowStatus(msg.user_id) };
+
+    case "cancel":
+      return { action: "respond", response: cancelWorkflow(msg.user_id) };
+
+    case "done":
+      return { action: "respond", response: finishWorkflow(msg.user_id) };
+
+    case "help":
+      return {
+        action: "respond",
+        response: [
+          "개발 워크플로우 명령:",
+          "",
+          "/dev {작업 내용}  — 개발 시작",
+          "/dev status      — 진행 상태",
+          "/dev done        — 작업 완료 → PR 생성",
+          "/dev cancel      — 워크플로우 취소",
+          "",
+          "예: /dev UserService에 이메일 검증 추가",
+        ].join("\n"),
+      };
+
+    default:
+      return { action: "respond", response: "/dev help 로 사용법을 확인하세요." };
+  }
+}
+
+/** 시스템 커맨드 처리 */
 function handleSystemCommand(
   cmd: string,
   msg: IncomingMessage,
@@ -125,15 +277,16 @@ function handleSystemCommand(
       return {
         action: "respond",
         response: [
-          "Jarvis 사용 가능한 명령:",
+          "Jarvis 명령:",
           "",
-          "/help — 이 도움말",
-          "/status — Jarvis 상태",
-          "/profile — 내 프로필 조회",
-          "/personality — 개인화 설정",
-          "/cron add {설명} — 크론잡 등록",
-          "/cron list — 크론잡 목록",
-          "/cron delete {id} — 크론잡 삭제",
+          "/dev {작업}     — 개발 워크플로우 시작",
+          "/dev status     — 개발 진행 상태",
+          "/dev done       — PR 생성",
+          "/dev cancel     — 개발 취소",
+          "/cron add ...   — 크론잡 등록",
+          "/cron list      — 크론잡 목록",
+          "/status         — Jarvis 상태",
+          "/profile        — 내 프로필",
           "",
           "그 외 메시지는 AI 질문으로 처리됩니다.",
         ].join("\n"),
@@ -156,7 +309,6 @@ function handleSystemCommand(
           `쓰기: ${profile?.permissions.write ? "O" : "X"}`,
           `실행: ${profile?.permissions.execute ? "O" : "X"}`,
           `크론: ${profile?.permissions.cron ? "O" : "X"}`,
-          `샌드박스: ${profile?.sandbox ? "O" : "X"}`,
         ].join("\n"),
       };
     }
@@ -171,7 +323,6 @@ function handleSystemCommand(
               `톤: ${personality.tone}`,
               `언어: ${personality.language}`,
               `상세도: ${personality.verbosity}`,
-              `이모지: ${personality.emoji ? "O" : "X"}`,
               `호칭: ${personality.nickname}`,
             ].join("\n")
           : "개인화 설정이 없습니다.",
