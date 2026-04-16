@@ -232,6 +232,28 @@ async function startTelegramListener(): Promise<void> {
 
   log("INFO", "Telegram 리스너 시작...");
 
+  // 봇 커맨드 메뉴 등록
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        commands: [
+          { command: "dev", description: "개발 워크플로우 시작 (/dev 작업내용)" },
+          { command: "help", description: "사용 가능한 명령 목록" },
+          { command: "status", description: "Jarvis 상태 확인" },
+          { command: "profile", description: "내 프로필 조회" },
+          { command: "personality", description: "개인화 설정 조회" },
+          { command: "cron", description: "크론잡 관리 (add/list/delete)" },
+        ],
+      }),
+    });
+    log("INFO", "Telegram 봇 커맨드 메뉴 등록됨");
+  } catch {
+    log("WARN", "Telegram 커맨드 메뉴 등록 실패");
+  }
+
+
   // 간단한 long polling 방식 (telegraf 의존성 없이)
   let offset = 0;
 
