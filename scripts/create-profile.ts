@@ -112,6 +112,9 @@ async function main() {
   console.log("\x1b[0m");
 
   // 1. 프로필 이름
+  console.log("\x1b[33m프로필은 팀원의 권한 등급입니다.");
+  console.log("팀원 등록 시 이 이름으로 프로필을 지정합니다.");
+  console.log("예: /jarvis-telegram pair approve A1B2C3 intern\x1b[0m\n");
   const name = await ask("프로필 이름 (영문, 예: developer, intern):");
   if (!name || !/^[a-z][a-z0-9_-]*$/.test(name)) {
     console.log("\x1b[31m영문 소문자로 시작하는 이름을 입력하세요.\x1b[0m");
@@ -126,10 +129,14 @@ async function main() {
   }
 
   // 2. 설명
+  console.log("\n\x1b[33m이 프로필의 역할을 설명하세요. 팀원 목록에서 표시됩니다.\x1b[0m");
   const description = await ask("프로필 설명 (한글 가능):");
 
   // 3. 허용 도구 선택
   console.log("\n\x1b[32m── 허용 도구 선택 ──\x1b[0m");
+  console.log("\x1b[33m이 프로필의 팀원이 사용할 수 있는 도구를 선택합니다.");
+  console.log("선택하지 않은 도구는 Claude가 호출할 수 없으므로,");
+  console.log("팀원이 요청해도 해당 작업이 수행되지 않습니다.\x1b[0m\n");
   const categoryNames = Object.keys(TOOL_CATEGORIES);
   const selectedCategories = await askMultiChoice(
     "허용할 도구 카테고리를 선택하세요:",
@@ -150,10 +157,13 @@ async function main() {
 
   // 4. 차단 도구
   console.log("\n\x1b[32m── 차단 도구 설정 ──\x1b[0m");
+  console.log("\x1b[33m허용 도구에 포함되어 있더라도 여기서 차단하면 실행되지 않습니다.");
+  console.log("예: 파일 쓰기는 허용하되 rm -rf는 차단하는 식으로 세밀하게 제어합니다.");
+  console.log("Owner의 로컬 보안을 위해 기본 차단 목록 사용을 권장합니다.\x1b[0m\n");
   console.log("기본 차단 목록:");
   DANGEROUS_PRESETS.forEach((t) => console.log(`  ✗ ${t}`));
 
-  const useDefaults = await askYesNo("기본 차단 목록을 사용할까요?");
+  const useDefaults = await askYesNo("\n기본 차단 목록을 사용할까요? (권장: y)");
   let disallowedTools = useDefaults ? [...DANGEROUS_PRESETS] : [];
 
   if (!useDefaults) {
@@ -169,12 +179,19 @@ async function main() {
 
   // 5. 접근 디렉토리
   console.log("\n\x1b[32m── 접근 디렉토리 설정 ──\x1b[0m");
+  console.log("\x1b[33m이 프로필의 팀원이 접근할 수 있는 디렉토리를 제한합니다.");
+  console.log("여기서 지정한 디렉토리 외에는 파일을 읽거나 수정할 수 없습니다.");
+  console.log("Owner의 ~/.ssh, ~/.env 등 민감한 파일을 보호하는 핵심 설정입니다.\x1b[0m\n");
   const addDirs: string[] = [];
 
-  if (await askYesNo("projects.jsonc에 등록된 프로젝트 디렉토리를 자동으로 허용할까요?")) {
+  console.log("\x1b[33mconfig/projects.jsonc에 등록된 프로젝트 저장소의 경로를 자동으로 허용합니다.");
+  console.log("예: vingle-backend → /Users/.../vingle-backend 자동 추가\x1b[0m");
+  if (await askYesNo("등록된 프로젝트 디렉토리를 자동 허용할까요? (권장: y)")) {
     addDirs.push("from_projects");
   }
 
+  console.log("\n\x1b[33m프로젝트 외에 추가로 접근을 허용할 디렉토리를 지정합니다.");
+  console.log("예: /Users/.../docs, /tmp/workspace 등\x1b[0m");
   if (await askYesNo("추가 디렉토리를 지정할까요?")) {
     while (true) {
       const dir = await ask("디렉토리 경로 (빈 줄이면 종료):");
@@ -194,9 +211,12 @@ async function main() {
 
   // 6. 시스템 프롬프트
   console.log("\n\x1b[32m── 시스템 프롬프트 ──\x1b[0m");
+  console.log("\x1b[33mClaude에게 전달할 추가 지시사항입니다.");
+  console.log("이 프로필의 팀원이 요청할 때마다 Claude가 이 규칙을 따릅니다.");
+  console.log("예: '한국어로만 응답', '시스템 파일 접근 금지' 등\x1b[0m\n");
   let systemPrompt = "";
   const promptChoice = await askChoice("시스템 프롬프트를 어떻게 설정할까요?", [
-    "기본 보안 규칙 사용",
+    "기본 보안 규칙 사용 (권장 — 시스템 파일 접근 차단)",
     "직접 입력",
     "없음",
   ]);
@@ -210,6 +230,8 @@ async function main() {
   }
 
   // 7. 타임아웃
+  console.log("\n\x1b[33mClaude가 한 요청을 처리하는 최대 시간입니다.");
+  console.log("초과하면 자동 중단됩니다. (60=1분, 300=5분, 600=10분)\x1b[0m");
   const timeoutStr = await ask("타임아웃 (초, 기본 300):");
   const timeout = Number(timeoutStr) || 300;
 
