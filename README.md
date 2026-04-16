@@ -185,7 +185,37 @@ Jarvis Daemon (백그라운드, launchd로 자동 시작)
 
 ## 사용법
 
-### 스킬 커맨드
+### 터미널 명령 (jarvis CLI)
+
+`setup.sh` 실행 후 어디서든 `jarvis` 명령으로 사용할 수 있습니다.
+
+```bash
+# Jarvis와 대화
+jarvis chat                # 인터랙티브 대화 모드 시작
+jarvis ask "질문 내용"      # 한 번 질문하고 답변 받기
+```
+
+```bash
+# 백그라운드 데몬 (팀원 채널 리스닝)
+jarvis start               # 데몬 시작
+jarvis stop                # 데몬 종료
+jarvis restart             # 재시작
+jarvis status              # 실행 상태
+jarvis logs                # 실시간 로그
+```
+
+```bash
+# 맥 부팅 시 자동 시작
+jarvis install             # launchd 등록
+jarvis uninstall           # 등록 해제
+```
+
+> **`jarvis chat`과 `jarvis start`는 별개입니다.**
+> - `jarvis chat` — 본인이 터미널에서 직접 Jarvis와 대화. 데몬 없이 단독 사용 가능.
+> - `jarvis start` — 팀원이 Telegram/Discord/Slack으로 접근할 수 있도록 백그라운드 리스닝.
+> - 혼자만 쓴다면 **`jarvis chat`만으로 충분**합니다.
+
+### Claude Code 스킬 커맨드 (대화 중 사용)
 
 | 커맨드 | 기능 |
 |--------|------|
