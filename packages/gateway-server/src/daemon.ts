@@ -66,9 +66,11 @@ async function executeWithClaude(
   personality?: Record<string, unknown>,
   userName?: string,
 ): Promise<string> {
-  const personalityPrompt = personality
-    ? buildPersonalityPrompt(personality, userName)
-    : undefined;
+  const personalityPrompt = buildPersonalityPrompt(
+    personality ?? {},
+    userName,
+    "external-channel",
+  );
 
   const args = buildClaudeArgs(profileName, prompt, {
     systemPrompt: personalityPrompt,
@@ -175,8 +177,7 @@ async function handleMessage(incoming: IncomingMessage): Promise<string> {
   const personality = userConfig?.personality as Record<string, unknown> | undefined;
   const userName = (userConfig?.name as string) ?? incoming.display_name;
 
-  // 응답 길이 제한 안내 추가
-  const channelPrompt = `[${incoming.channel}에서 ${userName}의 요청]\n${incoming.message}\n\n(채널 메시지이므로 응답은 2000자 이내로 간결하게)`;
+  const channelPrompt = incoming.message;
 
   const response = await executeWithClaude(
     channelPrompt,

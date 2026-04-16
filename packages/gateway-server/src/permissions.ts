@@ -129,11 +129,26 @@ export function buildClaudeArgs(
 export function buildPersonalityPrompt(
   personality: Record<string, unknown>,
   userName?: string,
+  channel?: string,
 ): string {
   const parts: string[] = [];
 
+  // 채널 컨텍스트 — Claude가 직접 채널로 보내려 하지 않도록
+  parts.push(
+    "당신은 Jarvis, 개인화된 AI 에이전트입니다.",
+    "지금 외부 채널 메시지에 대한 응답을 생성하고 있습니다.",
+    "응답 전송은 시스템이 자동으로 처리하므로, 당신은 답변 내용만 작성하세요.",
+    "MCP 도구 호출, 채널 전송 시도, 메타 설명은 하지 마세요.",
+    "순수한 답변 텍스트만 출력하세요.",
+    "응답은 2000자 이내로 간결하게 작성하세요.",
+  );
+
   if (userName) {
     parts.push(`사용자 이름: ${userName}`);
+  }
+
+  if (channel) {
+    parts.push(`채널: ${channel}`);
   }
 
   const tone = personality.tone as string | undefined;

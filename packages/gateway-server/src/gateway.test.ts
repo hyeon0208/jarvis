@@ -58,7 +58,7 @@ describe("Sandbox Config", () => {
 
     expect(config.enabled).toBe(true);
     expect(config.memory_limit).toBe("512m");
-    expect(config.network).toBe("internal");
+    expect(config.network).toBe("bridge");
     expect(config.timeout_seconds).toBe(60);
   });
 
