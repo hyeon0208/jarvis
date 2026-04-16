@@ -168,7 +168,69 @@ Jarvis Daemon (백그라운드, launchd로 자동 시작)
 
 ---
 
-### 7. 크론잡
+### 7. 개발 워크플로우 (/dev)
+
+`/dev` 커맨드로 체계적인 개발 프로세스를 실행합니다.
+일반 질문은 그냥 메시지를 보내면 되고, **코드 작업이 필요할 때만** `/dev`를 사용합니다.
+
+```
+멤버: /dev UserService에 이메일 검증 추가
+
+Jarvis: "어떤 프로젝트에서 작업할까요?
+         1. vingle-backend
+         번호를 입력하세요."
+
+멤버: 1
+
+Jarvis: "어떻게 시작할까요?
+         1. 이슈 생성 후 브랜치 생성
+         2. 바로 브랜치 생성하여 개발 시작"
+
+멤버: 2
+
+Jarvis: "개발 환경이 준비되었습니다!
+         브랜치: feature/userservice에-이메일-검증-추가 (← dev)
+         작업을 시작합니다..."
+         [코드 작업 수행]
+
+멤버: /dev done
+
+Jarvis: "PR이 생성되었습니다.
+         PR: https://github.com/.../pull/42"
+```
+
+| 커맨드 | 동작 |
+|--------|------|
+| `/dev {작업 내용}` | 워크플로우 시작 (프로젝트 선택 → 브랜치 생성) |
+| `/dev status` | 현재 진행 상태 확인 |
+| `/dev done` | commit → push → PR 생성 |
+| `/dev cancel` | 워크플로우 취소 + worktree 정리 |
+
+**동작 원리**:
+1. `dev` 브랜치에서 `git pull` (최신화)
+2. `feature/{task}` 브랜치 생성 (worktree로 격리)
+3. 해당 worktree에서 Claude가 코드 작업
+4. `/dev done` 시 commit → push → PR 자동 생성
+
+**프로젝트 설정** (`config/projects.jsonc`):
+```jsonc
+{
+  "projects": {
+    "vingle-backend": {
+      "name": "vingle-backend",
+      "path": "/로컬/경로/vingle-backend",   // 로컬 git clone 경로
+      "parent_branch": "dev",                // pull 받을 부모 브랜치
+      "repo": "org/vingle-backend",          // GitHub owner/repo (PR 생성용)
+      "allowed_profiles": ["admin", "developer"],
+      "branch_prefix": "feature"
+    }
+  }
+}
+```
+
+---
+
+### 8. 크론잡
 
 **모든 유저**가 한국어 자연어로 반복 작업을 등록할 수 있습니다:
 
@@ -246,10 +308,14 @@ jarvis uninstall           # 등록 해제
 | `/status` | Jarvis 상태 |
 | `/profile` | 내 프로필 조회 |
 | `/personality` | 개인화 설정 조회 |
+| `/dev {작업 내용}` | 개발 워크플로우 시작 |
+| `/dev status` | 개발 진행 상태 |
+| `/dev done` | commit → push → PR 생성 |
+| `/dev cancel` | 워크플로우 취소 |
 | `/cron add {스케줄} {작업}` | 크론잡 등록 |
 | `/cron list` | 크론잡 목록 |
 | `/cron delete {id}` | 크론잡 삭제 |
-| 일반 메시지 | AI 질문으로 처리 |
+| 일반 메시지 | AI 질문으로 처리 (코드 작업 없음) |
 
 ### MCP 도구 (19개)
 

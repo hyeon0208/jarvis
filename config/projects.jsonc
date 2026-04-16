@@ -1,15 +1,17 @@
 // Jarvis 프로젝트 설정
-// 개발 워크플로우에서 사용할 프로젝트 목록
+// 개발 워크플로우(/dev)에서 사용할 프로젝트 목록
+//
+// path: 로컬 git clone 경로 (worktree 생성, 코드 작업)
+// repo: GitHub owner/repo (PR/이슈 생성 시 gh CLI에서 사용)
 {
   "projects": {
-    // 예시: 프로젝트 키 → 설정
-    // "backend": {
-    //   "name": "vingle-backend",
-    //   "path": "/Users/hyeonjun/Desktop/vingle-backend",
-    //   "parent_branch": "dev",
-    //   "repo": "hyeon0208/vingle-backend",
-    //   "allowed_profiles": ["admin", "developer"],
-    //   "branch_prefix": "feature"
-    // }
+    "vingle-backend": {
+      "name": "vingle-backend",
+      "path": "/Users/hyeonjun/Desktop/프로젝트/vingle-backend",
+      "parent_branch": "dev",
+      "repo": "cosmos-official/vingle-backend",
+      "allowed_profiles": ["admin", "developer"],
+      "branch_prefix": "feature"
+    }
   }
 }
