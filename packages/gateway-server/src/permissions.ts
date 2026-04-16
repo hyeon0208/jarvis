@@ -29,6 +29,20 @@ const GIT_READ_TOOLS = [
   "Bash(git blame:*)",
 ];
 
+const GIT_WRITE_TOOLS = [
+  "Bash(git add:*)",
+  "Bash(git commit:*)",
+  "Bash(git push:*)",
+  "Bash(git checkout:*)",
+  "Bash(git switch:*)",
+  "Bash(git stash:*)",
+  "Bash(git merge:*)",
+  "Bash(git pull:*)",
+  "Bash(git fetch:*)",
+  "Bash(git branch:*)",
+  "Bash(gh pr:*)",
+];
+
 const WRITE_TOOLS = ["Edit", "Write"];
 
 const EXECUTE_TOOLS = [
@@ -58,6 +72,7 @@ const PROFILE_TOOLS: Record<string, string[]> = {
   developer: [
     ...READ_ONLY_TOOLS,
     ...GIT_READ_TOOLS,
+    ...GIT_WRITE_TOOLS,
     ...WRITE_TOOLS,
     ...EXECUTE_TOOLS,
     ...MEMORY_WRITE_TOOLS,
@@ -141,6 +156,7 @@ export function buildPersonalityPrompt(
     "MCP 도구 호출, 채널 전송 시도, 메타 설명은 하지 마세요.",
     "순수한 답변 텍스트만 출력하세요.",
     "응답은 2000자 이내로 간결하게 작성하세요.",
+    "Git 규칙: 새 브랜치 생성 시 반드시 dev 또는 main 브랜치에서 git pull을 먼저 실행한 후 브랜치를 생성하세요. git push --force, git reset --hard는 절대 사용하지 마세요.",
   );
 
   if (userName) {
