@@ -1,0 +1,190 @@
+# Jarvis 프로필 설정
+# 각 프로필별로 Claude CLI에 전달할 옵션을 관리합니다
+#
+# claude 섹션의 각 필드:
+#   allowed_tools     → --allowedTools (사용 가능한 도구)
+#   disallowed_tools  → --disallowedTools (차단할 명령)
+#   add_dirs          → --add-dir (접근 가능 디렉토리)
+#                       "from_projects"를 넣으면 projects.jsonc에서 자동 로드
+#   system_prompt     → --append-system-prompt (추가 시스템 프롬프트)
+#   model             → --model (사용할 모델)
+#   timeout           → 최대 실행 시간 (초)
+#   skip_permissions  → true면 --dangerously-skip-permissions (admin 전용)
+
+default_profile: observer
+
+profiles:
+  # ──────────────────────────────────────
+  # admin: Owner 전용, 제한 없음
+  # ──────────────────────────────────────
+  admin:
+    description: "전체 관리자"
+    claude:
+      skip_permissions: true
+    timeout: 600
+
+  # ──────────────────────────────────────
+  # developer: 코드 읽기/쓰기 + git + 테스트
+  # ──────────────────────────────────────
+  developer:
+    description: "개발자 — 코드 읽기/쓰기, git, 테스트 실행"
+    claude:
+      allowed_tools:
+        # 읽기
+        - Read
+        - Glob
+        - Grep
+        - WebSearch
+        - WebFetch
+
+        # 쓰기
+        - Edit
+        - Write
+
+        # Git 조회
+        - "Bash(git status:*)"
+        - "Bash(git log:*)"
+        - "Bash(git diff:*)"
+        - "Bash(git show:*)"
+        - "Bash(git branch:*)"
+        - "Bash(git blame:*)"
+
+        # Git 작업
+        - "Bash(git add:*)"
+        - "Bash(git commit:*)"
+        - "Bash(git push:*)"
+        - "Bash(git checkout:*)"
+        - "Bash(git switch:*)"
+        - "Bash(git stash:*)"
+        - "Bash(git merge:*)"
+        - "Bash(git pull:*)"
+        - "Bash(git fetch:*)"
+        - "Bash(gh pr:*)"
+
+        # 빌드/테스트
+        - "Bash(bun test:*)"
+        - "Bash(bun run build:*)"
+        - "Bash(npm test:*)"
+        - "Bash(npm run build:*)"
+        - "Bash(gradle test:*)"
+        - "Bash(gradle build:*)"
+        - "Bash(./gradlew test:*)"
+        - "Bash(./gradlew build:*)"
+
+        # Jarvis MCP
+        - "mcp__jarvis-memory__jarvis_memory_recall"
+        - "mcp__jarvis-memory__jarvis_memory_list"
+        - "mcp__jarvis-memory__jarvis_memory_save"
+        - "mcp__jarvis-memory__jarvis_session_search"
+        - "mcp__jarvis-memory__jarvis_memory_stats"
+        - "mcp__jarvis-gateway__jarvis_cron_manage"
+
+      disallowed_tools:
+        - "Bash(rm -rf:*)"
+        - "Bash(rm -r:*)"
+        - "Bash(sudo:*)"
+        - "Bash(su :*)"
+        - "Bash(chmod:*)"
+        - "Bash(chown:*)"
+        - "Bash(ssh:*)"
+        - "Bash(scp:*)"
+        - "Bash(cat ~/.ssh:*)"
+        - "Bash(cat ~/.env:*)"
+        - "Bash(cat /etc:*)"
+        - "Bash(open :*)"
+        - "Bash(osascript:*)"
+        - "Bash(kill:*)"
+        - "Bash(killall:*)"
+        - "Bash(launchctl:*)"
+        - "Bash(defaults:*)"
+        - "Bash(networksetup:*)"
+        - "Bash(git push --force:*)"
+        - "Bash(git reset --hard:*)"
+
+      add_dirs:
+        - from_projects  # projects.jsonc에서 해당 프로필의 프로젝트 경로 자동 로드
+
+      system_prompt: |
+        Git 규칙: 새 브랜치 생성 시 반드시 dev 또는 main 브랜치에서 git pull을 먼저 실행한 후 브랜치를 생성하세요.
+        git push --force, git reset --hard는 절대 사용하지 마세요.
+        보안 규칙: ~/.ssh, ~/.env, /etc 등 시스템 파일에 절대 접근하지 마세요.
+
+    timeout: 300
+
+  # ──────────────────────────────────────
+  # reviewer: 읽기 전용 + git 조회
+  # ──────────────────────────────────────
+  reviewer:
+    description: "리뷰어 — 읽기 전용, git 조회"
+    claude:
+      allowed_tools:
+        - Read
+        - Glob
+        - Grep
+        - WebSearch
+        - WebFetch
+        - "Bash(git status:*)"
+        - "Bash(git log:*)"
+        - "Bash(git diff:*)"
+        - "Bash(git show:*)"
+        - "Bash(git branch:*)"
+        - "Bash(git blame:*)"
+        - "mcp__jarvis-memory__jarvis_memory_recall"
+        - "mcp__jarvis-memory__jarvis_memory_list"
+        - "mcp__jarvis-memory__jarvis_session_search"
+        - "mcp__jarvis-memory__jarvis_memory_stats"
+        - "mcp__jarvis-gateway__jarvis_cron_manage"
+
+      disallowed_tools:
+        - "Bash(rm -rf:*)"
+        - "Bash(sudo:*)"
+        - "Bash(ssh:*)"
+        - "Bash(cat ~/.ssh:*)"
+        - "Bash(cat ~/.env:*)"
+        - "Bash(cat /etc:*)"
+        - "Bash(osascript:*)"
+
+      add_dirs:
+        - from_projects
+
+      system_prompt: |
+        읽기 전용 모드입니다. 코드를 수정하지 마세요.
+        보안 규칙: ~/.ssh, ~/.env, /etc 등 시스템 파일에 절대 접근하지 마세요.
+
+    timeout: 120
+
+  # ──────────────────────────────────────
+  # observer: 질문/검색만
+  # ──────────────────────────────────────
+  observer:
+    description: "옵저버 — 질문/검색만"
+    claude:
+      allowed_tools:
+        - Read
+        - Glob
+        - Grep
+        - WebSearch
+        - WebFetch
+        - "mcp__jarvis-memory__jarvis_memory_recall"
+        - "mcp__jarvis-memory__jarvis_memory_list"
+        - "mcp__jarvis-memory__jarvis_session_search"
+        - "mcp__jarvis-memory__jarvis_memory_stats"
+        - "mcp__jarvis-gateway__jarvis_cron_manage"
+
+      disallowed_tools:
+        - "Bash(rm -rf:*)"
+        - "Bash(sudo:*)"
+        - "Bash(ssh:*)"
+        - "Bash(cat ~/.ssh:*)"
+        - "Bash(cat ~/.env:*)"
+        - "Bash(cat /etc:*)"
+        - "Bash(osascript:*)"
+
+      add_dirs:
+        - from_projects
+
+      system_prompt: |
+        읽기 전용 모드입니다. 코드를 수정하거나 명령을 실행하지 마세요.
+        질문에 답변만 해주세요.
+
+    timeout: 60

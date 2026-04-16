@@ -1,172 +1,152 @@
-import { getProfile } from "./profiles.js";
-import { loadProjects, type ProjectConfig } from "./workflow.js";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { parse as parseYaml } from "yaml";
+import { loadProjects } from "./workflow.js";
 
 /**
- * 프로필 → Claude CLI 인자 매핑
+ * 프로필별 Claude CLI 인자를 config/profiles.yml에서 읽어 생성합니다.
  *
- * 1. --allowedTools: 사용 가능한 도구 제한
- * 2. --disallowedTools: 위험한 명령 차단
- * 3. --add-dir: 접근 가능 디렉토리 제한 (admin 외)
- *
- * admin 외 모든 프로필은 프로젝트 디렉토리만 접근 가능하며,
- * Owner의 로컬 파일(~/.ssh, ~/.env 등)에 접근할 수 없습니다.
+ * YAML 설정으로 관리하므로 코드 수정 없이 프로필을 추가/변경할 수 있습니다.
  */
 
-const READ_ONLY_TOOLS = [
-  "Read",
-  "Glob",
-  "Grep",
-  "WebSearch",
-  "WebFetch",
-  "mcp__jarvis-memory__jarvis_memory_recall",
-  "mcp__jarvis-memory__jarvis_memory_list",
-  "mcp__jarvis-memory__jarvis_session_search",
-  "mcp__jarvis-memory__jarvis_memory_stats",
-];
+const PROFILES_YML = join(
+  process.env.HOME ?? "~",
+  "jarvis",
+  "config",
+  "profiles.yml",
+);
 
-const GIT_READ_TOOLS = [
-  "Bash(git status:*)",
-  "Bash(git log:*)",
-  "Bash(git diff:*)",
-  "Bash(git show:*)",
-  "Bash(git branch:*)",
-  "Bash(git blame:*)",
-];
+// --- 타입 ---
 
-const GIT_WRITE_TOOLS = [
-  "Bash(git add:*)",
-  "Bash(git commit:*)",
-  "Bash(git push:*)",
-  "Bash(git checkout:*)",
-  "Bash(git switch:*)",
-  "Bash(git stash:*)",
-  "Bash(git merge:*)",
-  "Bash(git pull:*)",
-  "Bash(git fetch:*)",
-  "Bash(git branch:*)",
-  "Bash(gh pr:*)",
-];
+interface ProfileClaudeConfig {
+  allowed_tools?: string[];
+  disallowed_tools?: string[];
+  add_dirs?: string[];
+  system_prompt?: string;
+  model?: string;
+  skip_permissions?: boolean;
+}
 
-const WRITE_TOOLS = ["Edit", "Write"];
+interface ProfileConfig {
+  description: string;
+  claude?: ProfileClaudeConfig;
+  timeout?: number;
+}
 
-const EXECUTE_TOOLS = [
-  "Bash(bun test:*)",
-  "Bash(bun run build:*)",
-  "Bash(npm test:*)",
-  "Bash(npm run build:*)",
-  "Bash(gradle test:*)",
-  "Bash(gradle build:*)",
-  "Bash(./gradlew test:*)",
-  "Bash(./gradlew build:*)",
-];
+interface ProfilesYml {
+  default_profile: string;
+  profiles: Record<string, ProfileConfig>;
+}
 
-const MEMORY_WRITE_TOOLS = [
-  "mcp__jarvis-memory__jarvis_memory_save",
-  "mcp__jarvis-memory__jarvis_session_save",
-];
+// --- 캐시 ---
 
-const CRON_TOOLS = [
-  "mcp__jarvis-gateway__jarvis_cron_manage",
-];
+let cachedConfig: ProfilesYml | null = null;
+let cachedMtime = 0;
 
-/** 위험 명령 차단 목록 (모든 비-admin 프로필 공통) */
-const DANGEROUS_TOOLS = [
-  "Bash(rm -rf:*)",
-  "Bash(rm -r:*)",
-  "Bash(sudo:*)",
-  "Bash(su :*)",
-  "Bash(chmod:*)",
-  "Bash(chown:*)",
-  "Bash(ssh:*)",
-  "Bash(scp:*)",
-  "Bash(curl|:*)",
-  "Bash(wget|:*)",
-  "Bash(cat ~/.ssh:*)",
-  "Bash(cat ~/.env:*)",
-  "Bash(cat /etc:*)",
-  "Bash(open :*)",
-  "Bash(osascript:*)",
-  "Bash(kill:*)",
-  "Bash(killall:*)",
-  "Bash(launchctl:*)",
-  "Bash(defaults:*)",
-  "Bash(networksetup:*)",
-  "Bash(git push --force:*)",
-  "Bash(git reset --hard:*)",
-];
+/** YAML 설정 로드 (파일 변경 시 자동 리로드) */
+function loadProfilesYml(): ProfilesYml {
+  if (!existsSync(PROFILES_YML)) {
+    return { default_profile: "observer", profiles: {} };
+  }
 
-/** 프로필별 허용 도구 목록 */
-const PROFILE_TOOLS: Record<string, string[]> = {
-  admin: [],
+  const stat = Bun.file(PROFILES_YML);
+  const mtime = stat.lastModified;
 
-  developer: [
-    ...READ_ONLY_TOOLS,
-    ...GIT_READ_TOOLS,
-    ...GIT_WRITE_TOOLS,
-    ...WRITE_TOOLS,
-    ...EXECUTE_TOOLS,
-    ...MEMORY_WRITE_TOOLS,
-    ...CRON_TOOLS,
-  ],
+  if (cachedConfig && mtime === cachedMtime) {
+    return cachedConfig;
+  }
 
-  reviewer: [
-    ...READ_ONLY_TOOLS,
-    ...GIT_READ_TOOLS,
-    ...CRON_TOOLS,
-  ],
+  const content = readFileSync(PROFILES_YML, "utf-8");
+  cachedConfig = parseYaml(content) as ProfilesYml;
+  cachedMtime = mtime;
+  return cachedConfig;
+}
 
-  observer: [
-    ...READ_ONLY_TOOLS,
-    ...CRON_TOOLS,
-  ],
-};
+/** 프로필 설정 조회 */
+export function getProfileConfig(profileName: string): ProfileConfig | null {
+  const config = loadProfilesYml();
+  return config.profiles[profileName] ?? null;
+}
+
+/** 기본 프로필 이름 */
+export function getDefaultProfile(): string {
+  return loadProfilesYml().default_profile;
+}
+
+/** 프로필 목록 */
+export function listProfileConfigs(): Array<{ name: string; description: string }> {
+  const config = loadProfilesYml();
+  return Object.entries(config.profiles).map(([name, p]) => ({
+    name,
+    description: p.description,
+  }));
+}
 
 /** 프로필에 맞는 Claude CLI 인자 생성 */
 export function buildClaudeArgs(
   profileName: string,
   prompt: string,
   options?: {
-    model?: string;
     systemPrompt?: string;
     projectDir?: string;
   },
 ): string[] {
-  const args = ["-p", prompt];
+  const profile = getProfileConfig(profileName);
+  const claude = profile?.claude;
+  const args = ["-p", prompt, "--output-format", "text"];
 
-  if (options?.model) {
-    args.push("--model", options.model);
+  // admin (skip_permissions)
+  if (claude?.skip_permissions) {
+    args.push("--dangerously-skip-permissions");
+
+    if (options?.systemPrompt) {
+      args.push("--append-system-prompt", options.systemPrompt);
+    }
+    return args;
   }
 
-  args.push("--output-format", "text");
+  // 허용 도구
+  if (claude?.allowed_tools && claude.allowed_tools.length > 0) {
+    args.push("--allowedTools", claude.allowed_tools.join(","));
+  }
 
-  if (profileName === "admin") {
-    // admin: 제한 없음
-    args.push("--dangerously-skip-permissions");
-  } else {
-    // 허용 도구
-    const tools = PROFILE_TOOLS[profileName] ?? PROFILE_TOOLS.observer;
-    if (tools.length > 0) {
-      args.push("--allowedTools", tools.join(","));
-    }
+  // 차단 도구
+  if (claude?.disallowed_tools && claude.disallowed_tools.length > 0) {
+    args.push("--disallowedTools", claude.disallowed_tools.join(","));
+  }
 
-    // 위험 명령 차단
-    args.push("--disallowedTools", DANGEROUS_TOOLS.join(","));
-
-    // 디렉토리 접근 제한: 프로젝트 디렉토리만 허용
-    // --add-dir을 명시하면 Claude Code는 해당 디렉토리만 접근 가능
-    if (options?.projectDir) {
-      args.push("--add-dir", options.projectDir);
-    } else {
-      // 프로젝트 디렉토리 미지정 시 등록된 프로젝트들의 경로만 허용
-      const accessibleDirs = getAccessibleDirs(profileName);
-      for (const dir of accessibleDirs) {
+  // 디렉토리 제한
+  if (options?.projectDir) {
+    args.push("--add-dir", options.projectDir);
+  } else if (claude?.add_dirs) {
+    for (const dir of claude.add_dirs) {
+      if (dir === "from_projects") {
+        // projects.jsonc에서 해당 프로필 접근 가능 경로 로드
+        const projectDirs = getAccessibleDirs(profileName);
+        for (const d of projectDirs) {
+          args.push("--add-dir", d);
+        }
+      } else {
         args.push("--add-dir", dir);
       }
     }
   }
 
+  // 모델
+  if (claude?.model) {
+    args.push("--model", claude.model);
+  }
+
+  // 시스템 프롬프트 (YAML 설정 + 런타임 추가)
+  const prompts: string[] = [];
+  if (claude?.system_prompt) {
+    prompts.push(claude.system_prompt.trim());
+  }
   if (options?.systemPrompt) {
-    args.push("--append-system-prompt", options.systemPrompt);
+    prompts.push(options.systemPrompt);
+  }
+  if (prompts.length > 0) {
+    args.push("--append-system-prompt", prompts.join(" "));
   }
 
   return args;
@@ -201,17 +181,10 @@ export function buildPersonalityPrompt(
     "MCP 도구 호출, 채널 전송 시도, 메타 설명은 하지 마세요.",
     "순수한 답변 텍스트만 출력하세요.",
     "응답은 2000자 이내로 간결하게 작성하세요.",
-    "Git 규칙: 새 브랜치 생성 시 반드시 dev 또는 main 브랜치에서 git pull을 먼저 실행한 후 브랜치를 생성하세요. git push --force, git reset --hard는 절대 사용하지 마세요.",
-    "보안 규칙: ~/.ssh, ~/.env, /etc 등 시스템 파일에 절대 접근하지 마세요. 프로젝트 디렉토리 내 파일만 읽고 수정하세요.",
   );
 
-  if (userName) {
-    parts.push(`사용자 이름: ${userName}`);
-  }
-
-  if (channel) {
-    parts.push(`채널: ${channel}`);
-  }
+  if (userName) parts.push(`사용자 이름: ${userName}`);
+  if (channel) parts.push(`채널: ${channel}`);
 
   const tone = personality.tone as string | undefined;
   if (tone) {
@@ -251,6 +224,8 @@ export function buildPersonalityPrompt(
 
 /** 프로필에 사용 가능한 도구 목록 반환 (정보 표시용) */
 export function getProfileTools(profileName: string): string[] {
-  if (profileName === "admin") return ["(전체 접근)"];
-  return PROFILE_TOOLS[profileName] ?? PROFILE_TOOLS.observer;
+  const profile = getProfileConfig(profileName);
+  if (!profile) return ["(프로필 없음)"];
+  if (profile.claude?.skip_permissions) return ["(전체 접근)"];
+  return profile.claude?.allowed_tools ?? ["(도구 없음)"];
 }
