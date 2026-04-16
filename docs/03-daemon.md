@@ -1,0 +1,127 @@
+# 백그라운드 데몬
+
+## 개요
+
+Jarvis Daemon은 **터미널 없이 백그라운드에서 상시 대기**하며, Telegram 봇의 메시지를 자동으로 처리합니다.
+
+## 기본 명령
+
+```bash
+jarvis start      # 데몬 시작
+jarvis stop       # 데몬 종료
+jarvis restart    # 재시작
+jarvis status     # 실행 상태 확인
+jarvis logs       # 실시간 로그 (tail -f)
+jarvis logs 100   # 최근 100줄부터 표시
+```
+
+## 시작 예시
+
+```bash
+$ jarvis start
+Jarvis Daemon 시작 중...
+Jarvis Daemon 시작됨 (PID: 55365)
+로그: tail -f /Users/hyeonjun/.jarvis/daemon.log
+
+$ jarvis status
+● Jarvis Daemon 실행 중
+  PID:  55365
+  로그: /Users/hyeonjun/.jarvis/daemon.log
+
+  활성 채널:
+    ✓ Telegram 리스너 활성화됨
+```
+
+## 맥 부팅 시 자동 시작 (launchd)
+
+```bash
+jarvis install      # 등록 — 재부팅해도 자동 실행
+jarvis uninstall    # 해제
+```
+
+설치하면 `~/Library/LaunchAgents/com.jarvis.daemon.plist`가 등록됩니다.
+
+- 프로세스가 비정상 종료되면 **자동 재시작**
+- 10초 throttle로 무한 재시작 방지
+
+## 데몬이 하는 일
+
+```
+매 1초마다:
+  1. Telegram API에 "새 메시지 있어?" 물어봄 (getUpdates)
+  2. 메시지가 있으면:
+     ├── 누가 보냈나? → chat_id로 유저 식별
+     ├── 등록된 유저인가? → 미등록이면 페어링 코드 발급
+     ├── 어떤 프로필인가? → developer, observer 등
+     ├── 시스템 커맨드인가? → /help, /status 등이면 즉시 응답
+     ├── /dev 커맨드인가? → 개발 워크플로우 진행
+     └── 일반 메시지인가? → claude -p로 실행 후 응답
+```
+
+## 자동 승인 (프로필별)
+
+외부 채널 요청은 **매번 허락을 받지 않고** 프로필 권한 범위 내에서 자동 실행됩니다.
+
+```
+admin    → claude -p "..." --dangerously-skip-permissions
+developer → claude -p "..." --allowedTools "Read,Write,Edit,Grep,..."
+reviewer  → claude -p "..." --allowedTools "Read,Grep,Glob,..."
+observer  → claude -p "..." --allowedTools "Read,Grep,WebSearch"
+```
+
+**observer가 "코드 수정해줘"라고 요청해도**, Write/Edit 도구가 허용 목록에 없으므로 Claude가 수정을 수행할 수 없습니다.
+
+## 비용 보호
+
+admin 외의 프로필은 **요청당 $0.5 비용 제한**이 적용됩니다:
+
+```
+claude -p "..." --max-budget-usd 0.5
+```
+
+## 로그
+
+| 파일 | 내용 |
+|------|------|
+| `~/.jarvis/daemon.log` | 메인 로그 (메시지 수신/응답/에러) |
+| `~/.jarvis/daemon.stdout.log` | launchd stdout (install 시) |
+| `~/.jarvis/daemon.stderr.log` | launchd stderr (install 시) |
+
+### 로그 예시
+
+```
+[11:20:33] [INFO] === Jarvis Daemon 시작 ===
+[11:20:33] [INFO] Telegram 리스너 시작...
+[11:20:33] [INFO] Telegram 봇 커맨드 메뉴 등록됨
+[11:20:33] [INFO] Telegram 리스너 활성화됨
+[11:20:33] [INFO] Jarvis Daemon 대기 중...
+[11:21:15] [INFO] 수신: [telegram] 김철수: /dev 로그인 기능 구현
+[11:21:15] [INFO] claude 실행: profile=developer, dir=/project/.jarvis-worktrees/...
+[11:21:45] [INFO] claude 완료: 850자 응답
+```
+
+## 트러블슈팅
+
+### 데몬이 시작되지 않을 때
+
+```bash
+# 수동으로 직접 실행하여 에러 확인
+bun run ~/jarvis/packages/gateway-server/src/daemon.ts
+
+# PID 파일이 남아있을 때
+rm ~/.jarvis/daemon.pid
+jarvis start
+```
+
+### launchd 문제
+
+```bash
+# 강제 재등록
+jarvis uninstall
+jarvis install
+```
+
+## 다음 단계
+
+- [팀원 등록](04-team-members.md) — 페어링으로 팀원 추가
+- [개발 워크플로우](05-dev-workflow.md) — `/dev` 커맨드

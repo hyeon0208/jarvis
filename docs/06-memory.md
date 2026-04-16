@@ -1,0 +1,275 @@
+# 메모리 시스템
+
+## 개요
+
+Jarvis는 **3계층 메모리**로 세션 간 맥락을 유지합니다.
+과거에 했던 작업, 사용자 선호도, 자주 쓰는 스킬을 기억하여 더 나은 응답을 제공합니다.
+
+## 3계층 구조
+
+```
+┌──────────────────────────────────────────┐
+│ 1. 선언적 메모리 (사실/선호도)             │
+│    "이 프로젝트는 Kotlin + Spring Boot"   │
+│    "테스트는 BDD 패턴 선호"               │
+├──────────────────────────────────────────┤
+│ 2. 절차적 메모리 (스킬 인덱스)             │
+│    kotlin-expert, kt-spring-boot-expert  │
+│    ddd-context-loader, skill-generator   │
+├──────────────────────────────────────────┤
+│ 3. 세션 검색 (과거 대화)                   │
+│    "3일 전 JPA N+1 문제를 fetch join으로   │
+│     해결한 세션이 있음"                    │
+└──────────────────────────────────────────┘
+           +
+┌──────────────────────────────────────────┐
+│ Dreaming (메모리 정리)                     │
+│  중복 병합, 오래된 사실 아카이브             │
+└──────────────────────────────────────────┘
+```
+
+## 1. 선언적 메모리
+
+사용자에 대한 **사실과 선호도**를 저장합니다.
+
+### 저장
+
+```
+/jarvis 대화 중:
+  jarvis_memory_save(
+    type: "declarative",
+    key: "tech_stack",
+    content: "Kotlin + Spring Boot + JPA + QueryDSL",
+    tags: ["kotlin", "spring", "jpa"]
+  )
+```
+
+### 검색
+
+```
+jarvis_memory_recall(
+  query: "어떤 프레임워크 사용",
+  type: "declarative"
+)
+
+# 결과:
+{
+  "results": [
+    {
+      "type": "declarative",
+      "data": {
+        "key": "tech_stack",
+        "content": "Kotlin + Spring Boot + JPA + QueryDSL",
+        "tags": ["kotlin", "spring", "jpa"]
+      }
+    }
+  ]
+}
+```
+
+### 자동 추적
+
+`auto-memory` 훅이 세션 중 도구 사용을 자동으로 추적합니다:
+- 어떤 도구를 몇 번 사용했는지
+- 어떤 파일을 수정했는지
+- 세션 시작/종료 시각
+
+저장 위치: `~/.jarvis/sessions/{session-id}.json`
+
+## 2. 절차적 메모리 (스킬 인덱스)
+
+`~/.claude/skills/` 아래의 모든 스킬을 **SQLite FTS5로 인덱싱**합니다.
+
+### 스캔
+
+```bash
+node ~/jarvis/hooks/scan-skills.js
+```
+
+```
+[Jarvis] 스킬 스캔 완료: 13개 발견
+  - kotlin-expert [kotlin, spring, ddd, jpa]
+  - kt-spring-boot-expert [kotlin, spring, jpa, test]
+  - ddd-context-loader [kotlin, spring, ddd]
+  - jarvis [refactor, debug, review]
+  - skill-generator [git, api]
+  ...
+```
+
+### 동기화 (DB에 반영)
+
+```
+/jarvis sync
+```
+
+또는 MCP 도구:
+
+```
+jarvis_sync_skills
+```
+
+### 스킬 매칭
+
+요청에 관련된 스킬을 자동으로 찾습니다:
+
+```
+jarvis_memory_recall(
+  query: "Kotlin JPA 성능",
+  type: "procedural"
+)
+
+# 결과: kt-spring-boot-expert, kotlin-expert
+```
+
+## 3. 세션 검색 (FTS5)
+
+과거 대화 세션을 **전문 검색**하여 유사한 작업의 접근법을 회상합니다.
+
+### 검색
+
+```
+jarvis_session_search(query: "JPA N+1 문제")
+
+# 결과:
+{
+  "results": [
+    {
+      "session_id": "session-001",
+      "summary": "JPA N+1 문제 해결 — fetch join 적용",
+      "matched_content": "...>>>fetch join<<<을 사용하여 N+1 문제를 해결..."
+    }
+  ]
+}
+```
+
+### 세션 동기화
+
+훅이 기록한 세션 로그를 DB에 반영합니다:
+
+```
+jarvis_sync_sessions
+```
+
+## IntentGate와 메모리 연동
+
+`/jarvis` 커맨드로 요청하면 **자동으로 메모리를 프리로딩**합니다:
+
+```
+사용자: /jarvis Spring Boot에서 캐시 적용해줘
+
+Jarvis 내부 동작:
+  1. 카테고리 분류: coding
+  2. 복잡도 추정: standard
+  3. 스킬 매칭: jarvis_memory_recall("Spring Boot 캐시", type: "procedural")
+     → kt-spring-boot-expert 발견
+  4. 메모리 회상: jarvis_memory_recall("캐시", type: "declarative")
+     → "Redis를 사용 중" 발견
+  5. 세션 검색: jarvis_session_search("캐시")
+     → "지난주 Redis 캐시 설정한 세션" 발견
+
+→ 이 모든 컨텍스트를 활용하여 응답
+```
+
+## Dreaming (메모리 정리)
+
+주기적으로 메모리를 정리합니다:
+
+### 수동 실행
+
+```
+/jarvis dream
+```
+
+### 정리 내용
+
+| 동작 | 설명 |
+|------|------|
+| 중복 병합 | 같은 키로 여러 개 존재 시 최신만 유지 |
+| 오래된 아카이브 | 90일 이상 미사용 메모리 아카이브 |
+
+### 결과 예시
+
+```
+{
+  "duplicates_merged": 3,
+  "stale_archived": 5,
+  "total_affected": 8,
+  "actions": [
+    "중복 병합: \"tech_stack\" (3개 → 1개)",
+    "오래된 메모리 아카이브: 5건 (90일 이상)"
+  ]
+}
+```
+
+### Dreaming 히스토리
+
+```
+jarvis_dream_history
+```
+
+## 자율 스킬 생성
+
+복잡한 작업 완수 후 Jarvis가 **스킬 생성을 제안**합니다:
+
+### 트리거 조건
+
+- 도구 호출 15회 이상
+- 파일 변경 5개 이상
+- 경과 시간 30분 이상
+
+### 넛지 메시지
+
+```
+[Jarvis] 복잡한 작업이 감지되었습니다 (도구 23회, 파일 변경 8건, 45분 경과).
+이 작업을 스킬로 저장하면 다음에 재사용할 수 있습니다.
+/skill-generator 를 실행해보세요.
+```
+
+### 생성 절차
+
+```
+/skill-generator
+
+1. 세션 분석 — 사용한 도구, 수정한 파일, 패턴 분석
+2. 사용자 확인 — 스킬 이름/설명 제시 후 승인
+3. SKILL.md 작성 — Claude Code 스킬 형식
+4. 보안 스캔 — 시크릿, 파괴적 명령 차단
+5. 저장 — ~/.claude/skills/{name}/SKILL.md
+6. 인덱싱 — 절차적 메모리에 등록
+```
+
+### 보안 스캔
+
+| 차단 (자동) | 경고 (확인 필요) |
+|------------|----------------|
+| API 키 하드코딩 | 외부 URL |
+| `rm -rf`, `DROP TABLE` | 하드코딩된 경로 |
+| `eval()`, `exec()` | 특정 버전 번호 |
+| `curl \| sh` | 특정 포트 번호 |
+
+## 통계
+
+```
+/jarvis stats
+
+{
+  "declarative_memories": 15,
+  "procedural_memories": 13,
+  "sessions": 42,
+  "session_messages": 1280,
+  "paired_users": 3,
+  "total_users": 4
+}
+```
+
+## 데이터 위치
+
+| 항목 | 경로 |
+|------|------|
+| SQLite DB | `~/.jarvis/data/memory.db` |
+| 세션 로그 | `~/.jarvis/sessions/` |
+| 스킬 인덱스 | `~/.jarvis/skill-index.json` |
+
+## 다음 단계
+
+- [커맨드 레퍼런스](07-commands.md) — 전체 명령 목록
