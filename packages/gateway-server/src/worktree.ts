@@ -54,9 +54,10 @@ export function ensureWorktree(
   const safeName = toSafeDirName(userId);
   const branchName = `jarvis/${safeName}`;
 
-  // 이미 존재하면 그대로 반환
+  // 이미 존재하면 최신화 후 반환
   if (existsSync(worktreePath)) {
     const currentBranch = getCurrentBranch(worktreePath);
+    syncWorktree(gitRoot, worktreePath);
     return { path: worktreePath, branch: currentBranch, created: false };
   }
 
@@ -179,6 +180,61 @@ export function listWorktrees(projectDir: string): Array<{
     return worktrees;
   } catch {
     return [];
+  }
+}
+
+/**
+ * worktree를 dev/main 최신 상태로 동기화
+ *
+ * 1. git fetch origin (원격 최신 커밋 가져오기)
+ * 2. git rebase origin/{default_branch} (최신 변경사항 반영)
+ *    - 충돌 시 rebase 취소하고 merge로 대체 시도
+ */
+export function syncWorktree(gitRoot: string, worktreePath: string): void {
+  try {
+    const defaultBranch = getDefaultBranch(gitRoot);
+
+    // 원격에서 최신 커밋 가져오기
+    execSync("git fetch origin", {
+      cwd: worktreePath,
+      encoding: "utf-8",
+      stdio: "pipe",
+    });
+
+    // rebase로 최신화 시도
+    try {
+      execSync(`git rebase origin/${defaultBranch}`, {
+        cwd: worktreePath,
+        encoding: "utf-8",
+        stdio: "pipe",
+      });
+    } catch {
+      // rebase 충돌 시 취소 후 merge로 대체
+      try {
+        execSync("git rebase --abort", {
+          cwd: worktreePath,
+          stdio: "pipe",
+        });
+      } catch { /* 이미 취소된 경우 무시 */ }
+
+      try {
+        execSync(`git merge origin/${defaultBranch} --no-edit`, {
+          cwd: worktreePath,
+          encoding: "utf-8",
+          stdio: "pipe",
+        });
+      } catch {
+        // merge도 실패하면 포기 (현재 상태 유지)
+        try {
+          execSync("git merge --abort", {
+            cwd: worktreePath,
+            stdio: "pipe",
+          });
+        } catch { /* ignore */ }
+      }
+    }
+  } catch {
+    // fetch 실패 (네트워크 등) → 현재 상태 유지
   }
 }
 
