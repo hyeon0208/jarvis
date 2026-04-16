@@ -187,6 +187,7 @@ case "${1:-}" in
   chat)             cmd_chat ;;
   ask)              shift; cmd_ask "$@" ;;
   create-profile)   bun run "$HOME/jarvis/scripts/create-profile.ts" ;;
+  help|--help|-h)   ;; # 아래 기본 출력으로
   *)
     echo "Jarvis"
     echo ""
