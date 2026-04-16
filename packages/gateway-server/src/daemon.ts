@@ -30,13 +30,13 @@ const PROJECT_DIR = process.env.JARVIS_PROJECT_DIR ?? ""; // 프로젝트 디렉
 function log(level: string, message: string): void {
   const timestamp = new Date().toISOString();
   const line = `[${timestamp}] [${level}] ${message}`;
-  console.error(line);
 
   try {
     if (!existsSync(JARVIS_DIR)) mkdirSync(JARVIS_DIR, { recursive: true });
     appendFileSync(LOG_FILE, line + "\n");
   } catch {
-    // 로그 파일 쓰기 실패 무시
+    // 파일 쓰기 실패 시에만 stderr로 폴백
+    console.error(line);
   }
 }
 
