@@ -42,8 +42,26 @@ echo "[4/5] 스킬 스캔..."
 node "$JARVIS_DIR/hooks/scan-skills.js"
 
 # 5. 안내
+# 5. jarvis 명령 글로벌 등록
+echo "[5/6] jarvis 명령 등록..."
+JARVIS_BIN="$HOME/.local/bin/jarvis"
+mkdir -p "$HOME/.local/bin"
+if [ -L "$JARVIS_BIN" ] || [ -f "$JARVIS_BIN" ]; then
+  echo "  - jarvis: 이미 등록됨 (스킵)"
+else
+  ln -s "$JARVIS_DIR/jarvis.sh" "$JARVIS_BIN"
+  echo "  - jarvis → $JARVIS_DIR/jarvis.sh"
+fi
+
+# PATH 안내
+if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
+  echo ""
+  echo "  ※ ~/.local/bin이 PATH에 없습니다. 셸 설정에 추가하세요:"
+  echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
+fi
+
 echo ""
-echo "[5/5] Claude Code 설정 안내"
+echo "[6/6] Claude Code 설정 안내"
 echo ""
 echo "settings.json에 다음을 수동으로 추가하세요:"
 echo ""

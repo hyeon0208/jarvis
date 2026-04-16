@@ -118,6 +118,34 @@ cmd_logs() {
   tail -f -n "$lines" "$LOG_FILE"
 }
 
+SYSTEM_PROMPT="당신은 Jarvis입니다. 사용자의 개인화된 AI 에이전트로서 다음 역할을 수행합니다:
+- IntentGate: 요청의 의도와 복잡도를 분석하여 최적 대응
+- 메모리: jarvis_memory_recall/save로 과거 맥락을 활용
+- 스킬 매칭: jarvis_memory_recall(type:procedural)로 관련 스킬 탐색
+- 세션 검색: jarvis_session_search로 유사한 과거 작업 참조
+항상 한국어로 응답하세요. 사용자가 /jarvis 커맨드를 사용하면 해당 스킬의 절차를 따르세요."
+
+cmd_chat() {
+  echo -e "${GREEN}Jarvis 대화 모드 시작...${NC}"
+  echo -e "종료: Ctrl+C 또는 /exit"
+  echo ""
+
+  claude \
+    --append-system-prompt "$SYSTEM_PROMPT" \
+    --name "Jarvis"
+}
+
+cmd_ask() {
+  local prompt="$*"
+  if [ -z "$prompt" ]; then
+    echo -e "${RED}질문을 입력하세요: $0 ask \"질문 내용\"${NC}"
+    return 1
+  fi
+
+  claude -p "$prompt" \
+    --append-system-prompt "$SYSTEM_PROMPT"
+}
+
 PLIST_SRC="$HOME/jarvis/config/com.jarvis.daemon.plist"
 PLIST_DST="$HOME/Library/LaunchAgents/com.jarvis.daemon.plist"
 
@@ -156,16 +184,21 @@ case "${1:-}" in
   logs)      cmd_logs "${2:-50}" ;;
   install)   cmd_install ;;
   uninstall) cmd_uninstall ;;
+  chat)      cmd_chat ;;
+  ask)       shift; cmd_ask "$@" ;;
   *)
-    echo "Jarvis Daemon 관리"
+    echo "Jarvis"
     echo ""
-    echo "사용법: $0 {start|stop|restart|status|logs|install|uninstall}"
+    echo "사용법: $0 {chat|ask|start|stop|restart|status|logs|install|uninstall}"
     echo ""
-    echo "  start      백그라운드로 Jarvis 시작"
-    echo "  stop       Jarvis 종료"
-    echo "  restart    재시작"
+    echo "  ${GREEN}chat${NC}       Jarvis와 대화 모드 시작 (인터랙티브)"
+    echo "  ${GREEN}ask${NC} \"...\"  Jarvis에게 한 번 질문하고 답변 받기"
+    echo ""
+    echo "  start      백그라운드 데몬 시작"
+    echo "  stop       데몬 종료"
+    echo "  restart    데몬 재시작"
     echo "  status     실행 상태 확인"
-    echo "  logs [N]   최근 로그 실시간 표시 (기본 50줄)"
+    echo "  logs [N]   데몬 로그 실시간 표시"
     echo "  install    맥 부팅 시 자동 시작 등록 (launchd)"
     echo "  uninstall  자동 시작 해제"
     ;;
