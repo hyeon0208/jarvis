@@ -34,8 +34,8 @@ Jarvis는 [Claude Code](https://claude.ai/claude-code)를 기반으로 구축된
 │  └─────────────┘  └─────────────┘  └─────────────┘     │
 │                                                          │
 │  ┌─────────────────────────────────────────────────┐    │
-│  │              Docker Sandbox                      │    │
-│  │           팀원 요청 격리 실행                      │    │
+│  │          Directory Isolation                     │    │
+│  │     --add-dir + --disallowedTools 로컬 보호      │    │
 │  └─────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -48,7 +48,7 @@ Jarvis는 [Claude Code](https://claude.ai/claude-code)를 기반으로 구축된
 | 멀티채널 게이트웨이 | OpenClaw | Telegram/Discord/Slack 동시 지원 |
 | 프로필 권한 | OpenClaw | 4단계 역할 기반 접근 제어 |
 | 크론잡 | OpenClaw | 자연어로 반복 작업 등록 |
-| Docker 샌드박스 | OpenClaw | 팀원 요청을 격리 실행 |
+| 디렉토리 격리 | — | --add-dir + --disallowedTools로 로컬 보호 |
 
 ---
 
@@ -141,30 +141,57 @@ Jarvis Daemon (백그라운드, launchd로 자동 시작)
 
 | 기능 | admin | developer | reviewer | observer |
 |------|-------|-----------|----------|----------|
-| 코드 읽기 | 전체 | 전체 | 전체 | docs만 |
-| 코드 쓰기 | O | 허용 디렉토리 | X | X |
+| 코드 읽기 | 전체 | 프로젝트만 | 프로젝트만 | 프로젝트만 |
+| 코드 쓰기 | O | 프로젝트만 | X | X |
 | 명령 실행 | 전체 | 테스트/빌드만 | X | X |
-| Git | 전체 | 읽기 전용 | 읽기 전용 | X |
+| Git | 전체 | add/commit/push | 읽기 전용 | X |
 | 크론잡 | O | O | O | O |
-| 샌드박스 | X (직접) | O | O | O |
+| 디렉토리 격리 | X (전체 접근) | O | O | O |
 | 타임아웃 | 10분 | 5분 | 2분 | 1분 |
 
 각 프로필 내에서 **개인화** 가능: 에이전트 성격(tone), 언어, 상세도, 이모지, 호칭
 
+#### 프로필 생성
+
+```bash
+jarvis create-profile
+```
+
+인터랙티브 마법사가 안내에 따라 설정합니다:
+1. 프로필 이름/설명
+2. 허용 도구 카테고리 선택 (파일 읽기, 쓰기, Git, 빌드 등)
+3. 차단 명령 설정 (rm -rf, sudo, ssh 등)
+4. 접근 가능 디렉토리 지정 (없으면 자동 생성)
+5. 시스템 프롬프트 설정
+6. 타임아웃
+
+설정은 `config/profiles.yml`에 저장되며, 코드 수정 없이 YAML만 편집해도 됩니다.
+
 ---
 
-### 6. Docker 샌드박스
+### 6. 디렉토리 격리 (로컬 보호)
 
-팀원의 요청은 격리된 Docker 컨테이너에서 실행됩니다.
+admin 외 모든 프로필은 **지정된 프로젝트 디렉토리만** 접근 가능합니다.
+Docker 없이 Claude CLI의 `--add-dir` + `--disallowedTools`로 보호합니다.
 
-| 항목 | 제한 |
-|------|------|
-| 메모리 | 512MB |
-| CPU | 1코어 |
-| PID | 최대 100 |
-| 네트워크 | 내부 전용 (외부 차단) |
-| 파일시스템 | 프로필 허용 디렉토리만 마운트 |
-| 타임아웃 | 프로필별 (1~10분) |
+```
+팀원 요청 시 실제 실행되는 명령:
+
+claude -p "로그인 기능 구현해줘" \
+  --allowedTools "Read,Write,Edit,Grep,..."  ← 허용 도구만
+  --disallowedTools "Bash(sudo:*),..."       ← 위험 명령 차단
+  --add-dir "/project/vingle-backend"        ← 이 디렉토리만 접근 가능
+```
+
+**보호 범위**:
+
+| 보호 대상 | 방법 |
+|----------|------|
+| `~/.ssh`, `~/.env` | `--add-dir`로 프로젝트만 허용 (나머지 접근 불가) |
+| `rm -rf`, `sudo` | `--disallowedTools`로 차단 |
+| `git push --force` | `--disallowedTools`로 차단 |
+| `cat /etc/passwd` | `--disallowedTools`로 차단 |
+| 비용 과다 사용 | 타임아웃으로 제한 |
 
 ---
 
@@ -348,7 +375,7 @@ jarvis uninstall           # 등록 해제
 | `jarvis_gateway_pair` | DM 페어링 관리 |
 | `jarvis_profile_manage` | 프로필/개인화 관리 |
 | `jarvis_cron_manage` | 크론잡 CRUD |
-| `jarvis_sandbox_config` | Docker 샌드박스 설정 조회 |
+| `jarvis_worktree_manage` | git worktree 관리 |
 | `jarvis_gateway_status` | 게이트웨이 상태 |
 
 </details>
@@ -371,8 +398,7 @@ Claude Code (구독 기반, 메인 에이전트)
 │
 └── MCP Servers (로컬)
      ├── jarvis-memory       ← SQLite + FTS5 메모리 엔진
-     └── jarvis-gateway      ← 채널 라우팅 + 인증 + 프로필
-          └── Docker Sandbox Pool
+     └── jarvis-gateway      ← 채널 라우팅 + 인증 + 프로필 + 디렉토리 격리
 ```
 
 ## 빠른 시작
@@ -381,7 +407,6 @@ Claude Code (구독 기반, 메인 에이전트)
 
 - [Claude Code](https://claude.ai/claude-code) 구독
 - [Bun](https://bun.sh/) v1.0+
-- [Docker](https://www.docker.com/) (팀원 샌드박스 사용 시)
 
 ### 설치
 
@@ -430,12 +455,14 @@ jarvis/
 │   ├── memory-server/     ← 메모리 MCP 서버 (SQLite + FTS5)
 │   ├── gateway-server/    ← 채널 게이트웨이 MCP 서버
 │   │   └── src/adapters/  ← Telegram/Discord/Slack 어댑터
-│   └── sandbox/           ← Docker 샌드박스 이미지
+│   └── sandbox/           ← Docker 샌드박스 이미지 (선택)
 ├── skills/                ← Claude Code 스킬
 ├── hooks/                 ← Claude Code 훅
-├── config/                ← 프로필/라우팅/유저 설정 템플릿
-├── docs/                  ← 사용 가이드
-├── docker-compose.yml
+├── scripts/               ← 프로필 생성 마법사 등
+├── config/
+│   ├── profiles.yml       ← 프로필별 권한/도구/디렉토리 설정
+│   └── projects.jsonc     ← 프로젝트 저장소 등록
+├── docs/                  ← 사용 가이드 (7개 문서)
 └── package.json           ← Bun 모노레포
 ```
 
