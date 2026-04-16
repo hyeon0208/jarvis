@@ -79,7 +79,6 @@ async function executeWithClaude(
 
   const args = buildClaudeArgs(profileName, prompt, {
     systemPrompt: personalityPrompt,
-    maxBudget: profileName === "admin" ? undefined : 0.5,
     projectDir: workDir,
   });
 

@@ -128,7 +128,6 @@ export function buildClaudeArgs(
   options?: {
     model?: string;
     systemPrompt?: string;
-    maxBudget?: number;
     projectDir?: string;
   },
 ): string[] {
@@ -168,10 +167,6 @@ export function buildClaudeArgs(
 
   if (options?.systemPrompt) {
     args.push("--append-system-prompt", options.systemPrompt);
-  }
-
-  if (options?.maxBudget) {
-    args.push("--max-budget-usd", String(options.maxBudget));
   }
 
   return args;
