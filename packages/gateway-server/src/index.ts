@@ -13,6 +13,7 @@ import { listProfiles, getProfile } from "./profiles.js";
 import { routeMessage, type IncomingMessage } from "./router.js";
 import { buildSandboxConfig, buildDockerCommand } from "./sandbox.js";
 import { addCronJob, listCronJobs, deleteCronJob, toggleCronJob } from "./cron.js";
+import { ensureWorktree, removeWorktree, listWorktrees } from "./worktree.js";
 
 const server = new McpServer({
   name: "jarvis-gateway",
@@ -260,6 +261,53 @@ server.tool(
       const result = toggleCronJob(user_id, job_id);
       return {
         content: [{ type: "text" as const, text: JSON.stringify(result) }],
+      };
+    }
+
+    return {
+      content: [{ type: "text" as const, text: "필수 파라미터가 누락되었습니다" }],
+    };
+  },
+);
+
+// ============================================================
+// Worktree 관리
+// ============================================================
+
+server.tool(
+  "jarvis_worktree_manage",
+  "멤버별 git worktree를 관리합니다 (목록/생성/삭제)",
+  {
+    action: z.enum(["list", "ensure", "remove"]).describe("액션"),
+    project_dir: z.string().describe("프로젝트 디렉토리 경로"),
+    user_id: z.string().optional().describe("유저 ID (ensure/remove 시)"),
+  },
+  async ({ action, project_dir, user_id }) => {
+    if (action === "list") {
+      const wts = listWorktrees(project_dir);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ total: wts.length, worktrees: wts }),
+          },
+        ],
+      };
+    }
+
+    if (action === "ensure" && user_id) {
+      const wt = ensureWorktree(project_dir, user_id);
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(wt) }],
+      };
+    }
+
+    if (action === "remove" && user_id) {
+      const removed = removeWorktree(project_dir, user_id);
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify({ success: removed }) },
+        ],
       };
     }
 

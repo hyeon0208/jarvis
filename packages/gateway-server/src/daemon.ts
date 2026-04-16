@@ -17,12 +17,14 @@ import { routeMessage, type IncomingMessage } from "./router.js";
 import { buildClaudeArgs, buildPersonalityPrompt } from "./permissions.js";
 import { loadUserConfig } from "./auth.js";
 import { addCronJob, listCronJobs, deleteCronJob, toggleCronJob } from "./cron.js";
+import { ensureWorktree } from "./worktree.js";
 
 // --- 설정 ---
 const JARVIS_DIR = join(process.env.HOME ?? "~", ".jarvis");
 const LOG_FILE = join(JARVIS_DIR, "daemon.log");
 const PID_FILE = join(JARVIS_DIR, "daemon.pid");
 const CONFIG_FILE = join(process.env.HOME ?? "~", "jarvis", ".env");
+const PROJECT_DIR = process.env.JARVIS_PROJECT_DIR ?? ""; // 프로젝트 디렉토리 (설정 시 worktree 활성화)
 
 // --- 로깅 ---
 function log(level: string, message: string): void {
@@ -63,9 +65,20 @@ function loadEnv(): void {
 async function executeWithClaude(
   prompt: string,
   profileName: string,
+  userId: string,
   personality?: Record<string, unknown>,
   userName?: string,
 ): Promise<string> {
+  // 멤버별 worktree 확보 (프로젝트 디렉토리 설정 시)
+  let workDir: string | undefined;
+  if (PROJECT_DIR && profileName !== "admin") {
+    const wt = ensureWorktree(PROJECT_DIR, userId);
+    workDir = wt.path;
+    if (wt.created) {
+      log("INFO", `worktree 생성: ${userId} → ${wt.path} (${wt.branch})`);
+    }
+  }
+
   const personalityPrompt = buildPersonalityPrompt(
     personality ?? {},
     userName,
@@ -74,15 +87,17 @@ async function executeWithClaude(
 
   const args = buildClaudeArgs(profileName, prompt, {
     systemPrompt: personalityPrompt,
-    maxBudget: profileName === "admin" ? undefined : 0.5, // admin 외 $0.5 제한
+    maxBudget: profileName === "admin" ? undefined : 0.5,
+    projectDir: workDir,
   });
 
-  log("INFO", `claude 실행: profile=${profileName}, prompt=${prompt.slice(0, 80)}...`);
+  log("INFO", `claude 실행: profile=${profileName}, dir=${workDir ?? "default"}, prompt=${prompt.slice(0, 80)}...`);
 
   return new Promise((resolve) => {
     const child = spawn("claude", args, {
       stdio: ["pipe", "pipe", "pipe"],
-      timeout: 5 * 60 * 1000, // 5분 타임아웃
+      cwd: workDir, // worktree 디렉토리에서 실행
+      timeout: 5 * 60 * 1000,
       env: { ...process.env },
     });
 
@@ -177,11 +192,10 @@ async function handleMessage(incoming: IncomingMessage): Promise<string> {
   const personality = userConfig?.personality as Record<string, unknown> | undefined;
   const userName = (userConfig?.name as string) ?? incoming.display_name;
 
-  const channelPrompt = incoming.message;
-
   const response = await executeWithClaude(
-    channelPrompt,
+    incoming.message,
     profileName,
+    incoming.user_id,
     personality,
     userName,
   );
