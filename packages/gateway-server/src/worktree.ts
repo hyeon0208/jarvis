@@ -1,24 +1,24 @@
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 
 const WORKTREES_DIR = ".jarvis-worktrees";
 
 /**
- * 멤버별 Git Worktree 관리
+ * 작업별 Git Worktree 관리
  *
- * 각 멤버에게 독립된 작업 디렉토리를 제공하여
- * 브랜치 충돌 없이 동시 작업이 가능하게 합니다.
+ * 매 요청마다 dev/main에서 pull 후 새 브랜치+워크트리를 생성합니다.
+ * 작업 완료 후 commit/push가 끝나면 자동 정리됩니다.
  *
  * 구조:
- *   ~/project/                          ← 메인 (Owner)
  *   ~/project/.jarvis-worktrees/
- *     ├── telegram_1111/                ← 멤버 A 전용
- *     └── discord_2222/                 ← 멤버 B 전용
+ *     ├── telegram_1111_1713264000/    ← 멤버 A의 작업 1
+ *     ├── telegram_1111_1713264060/    ← 멤버 A의 작업 2
+ *     └── discord_2222_1713264100/     ← 멤버 B의 작업 1
  */
 
 /** 유저 ID를 안전한 디렉토리명으로 변환 */
-function toSafeDirName(userId: string): string {
+function toSafeName(userId: string): string {
   return userId.replace(/[^a-zA-Z0-9]/g, "_");
 }
 
@@ -28,103 +28,69 @@ export function findGitRoot(dir: string): string | null {
     return execSync("git rev-parse --show-toplevel", {
       cwd: dir,
       encoding: "utf-8",
+      stdio: "pipe",
     }).trim();
   } catch {
     return null;
   }
 }
 
-/** 멤버 전용 worktree 경로 반환 */
-export function getWorktreePath(projectDir: string, userId: string): string {
-  return join(projectDir, WORKTREES_DIR, toSafeDirName(userId));
-}
-
-/** 멤버 전용 worktree 생성 또는 기존 반환 */
-export function ensureWorktree(
+/**
+ * 새 작업용 worktree 생성
+ *
+ * 1. git fetch origin
+ * 2. dev/main 최신 상태 확인
+ * 3. 새 브랜치 생성 (jarvis/{user}/{timestamp})
+ * 4. 해당 브랜치로 worktree 생성
+ */
+export function createTaskWorktree(
   projectDir: string,
   userId: string,
 ): { path: string; branch: string; created: boolean } {
   const gitRoot = findGitRoot(projectDir);
   if (!gitRoot) {
-    // git repo가 아니면 프로젝트 디렉토리 그대로 반환
     return { path: projectDir, branch: "none", created: false };
   }
 
-  const worktreePath = getWorktreePath(gitRoot, userId);
-  const safeName = toSafeDirName(userId);
-  const branchName = `jarvis/${safeName}`;
+  const safeName = toSafeName(userId);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const dirName = `${safeName}_${timestamp}`;
+  const branchName = `jarvis/${safeName}/${timestamp}`;
+  const worktreePath = join(gitRoot, WORKTREES_DIR, dirName);
 
-  // 이미 존재하면 최신화 후 반환
-  if (existsSync(worktreePath)) {
-    const currentBranch = getCurrentBranch(worktreePath);
-    syncWorktree(gitRoot, worktreePath);
-    return { path: worktreePath, branch: currentBranch, created: false };
-  }
+  // worktrees 디렉토리 + .gitignore 설정
+  ensureWorktreesDir(gitRoot);
 
-  // worktrees 디렉토리 생성
-  const worktreesDir = join(gitRoot, WORKTREES_DIR);
-  if (!existsSync(worktreesDir)) {
-    mkdirSync(worktreesDir, { recursive: true });
-    // .gitignore에 추가 (메인 repo에 worktree 파일이 추적되지 않도록)
-    try {
-      const gitignorePath = join(gitRoot, ".gitignore");
-      const { readFileSync, appendFileSync } = require("node:fs");
-      const content = existsSync(gitignorePath)
-        ? readFileSync(gitignorePath, "utf-8")
-        : "";
-      if (!content.includes(WORKTREES_DIR)) {
-        appendFileSync(gitignorePath, `\n${WORKTREES_DIR}/\n`);
-      }
-    } catch {
-      // .gitignore 업데이트 실패는 무시
-    }
-  }
-
-  // 기본 브랜치에서 pull 후 worktree 생성
   try {
     const defaultBranch = getDefaultBranch(gitRoot);
 
-    // 최신 상태로 pull
-    execSync(`git pull origin ${defaultBranch} --ff-only`, {
+    // 원격 최신 커밋 가져오기
+    execSync("git fetch origin", {
       cwd: gitRoot,
       encoding: "utf-8",
       stdio: "pipe",
     });
 
-    // 브랜치가 이미 있으면 재사용, 없으면 생성
-    const branchExists = checkBranchExists(gitRoot, branchName);
-
-    if (branchExists) {
-      execSync(`git worktree add "${worktreePath}" ${branchName}`, {
+    // 최신 dev/main에서 새 브랜치+워크트리 생성
+    execSync(
+      `git worktree add -b ${branchName} "${worktreePath}" origin/${defaultBranch}`,
+      {
         cwd: gitRoot,
         encoding: "utf-8",
         stdio: "pipe",
-      });
-    } else {
-      execSync(
-        `git worktree add -b ${branchName} "${worktreePath}" ${defaultBranch}`,
-        {
-          cwd: gitRoot,
-          encoding: "utf-8",
-          stdio: "pipe",
-        },
-      );
-    }
+      },
+    );
 
     return { path: worktreePath, branch: branchName, created: true };
   } catch (err) {
-    // worktree 생성 실패 시 프로젝트 디렉토리 반환
     return { path: projectDir, branch: "fallback", created: false };
   }
 }
 
-/** worktree 삭제 */
-export function removeWorktree(projectDir: string, userId: string): boolean {
+/** 완료된 worktree 정리 */
+export function cleanupWorktree(projectDir: string, worktreePath: string): boolean {
   const gitRoot = findGitRoot(projectDir);
   if (!gitRoot) return false;
-
-  const worktreePath = getWorktreePath(gitRoot, userId);
-  if (!existsSync(worktreePath)) return false;
 
   try {
     execSync(`git worktree remove "${worktreePath}" --force`, {
@@ -138,11 +104,51 @@ export function removeWorktree(projectDir: string, userId: string): boolean {
   }
 }
 
-/** 모든 jarvis worktree 목록 */
+/** 오래된 worktree 일괄 정리 (기본 24시간 이상) */
+export function cleanupOldWorktrees(
+  projectDir: string,
+  maxAgeHours = 24,
+): number {
+  const gitRoot = findGitRoot(projectDir);
+  if (!gitRoot) return 0;
+
+  const worktreesDir = join(gitRoot, WORKTREES_DIR);
+  if (!existsSync(worktreesDir)) return 0;
+
+  let cleaned = 0;
+  const now = Math.floor(Date.now() / 1000);
+  const maxAgeSec = maxAgeHours * 60 * 60;
+
+  try {
+    const { readdirSync } = require("node:fs");
+    const dirs = readdirSync(worktreesDir) as string[];
+
+    for (const dir of dirs) {
+      // 디렉토리명에서 timestamp 추출 (마지막 _이후 숫자)
+      const match = dir.match(/_(\d+)$/);
+      if (!match) continue;
+
+      const created = Number(match[1]);
+      if (now - created > maxAgeSec) {
+        const wtPath = join(worktreesDir, dir);
+        if (cleanupWorktree(projectDir, wtPath)) {
+          cleaned++;
+        }
+      }
+    }
+  } catch {
+    // 정리 실패 무시
+  }
+
+  return cleaned;
+}
+
+/** 활성 worktree 목록 */
 export function listWorktrees(projectDir: string): Array<{
   path: string;
   branch: string;
   userId: string;
+  createdAt: string;
 }> {
   const gitRoot = findGitRoot(projectDir);
   if (!gitRoot) return [];
@@ -154,7 +160,12 @@ export function listWorktrees(projectDir: string): Array<{
       stdio: "pipe",
     });
 
-    const worktrees: Array<{ path: string; branch: string; userId: string }> = [];
+    const results: Array<{
+      path: string;
+      branch: string;
+      userId: string;
+      createdAt: string;
+    }> = [];
 
     const blocks = output.split("\n\n");
     for (const block of blocks) {
@@ -167,74 +178,44 @@ export function listWorktrees(projectDir: string): Array<{
       const wtPath = pathLine.replace("worktree ", "");
       const branch = branchLine.replace("branch refs/heads/", "");
 
-      // jarvis/ 접두사 브랜치만 필터
       if (!branch.startsWith("jarvis/")) continue;
 
-      const userId = branch
-        .replace("jarvis/", "")
-        .replace(/_/g, ":");
+      // jarvis/{user}/{timestamp} → userId, timestamp 추출
+      const parts = branch.split("/");
+      const userId = (parts[1] ?? "").replace(/_/g, ":");
+      const ts = parts[2] ?? "";
+      const createdAt = ts
+        ? new Date(Number(ts) * 1000).toISOString()
+        : "unknown";
 
-      worktrees.push({ path: wtPath, branch, userId });
+      results.push({ path: wtPath, branch, userId, createdAt });
     }
 
-    return worktrees;
+    return results;
   } catch {
     return [];
   }
 }
 
-/**
- * worktree를 dev/main 최신 상태로 동기화
- *
- * 1. git fetch origin (원격 최신 커밋 가져오기)
- * 2. git rebase origin/{default_branch} (최신 변경사항 반영)
- *    - 충돌 시 rebase 취소하고 merge로 대체 시도
- */
-export function syncWorktree(gitRoot: string, worktreePath: string): void {
+// --- 내부 함수 ---
+
+function ensureWorktreesDir(gitRoot: string): void {
+  const worktreesDir = join(gitRoot, WORKTREES_DIR);
+  if (!existsSync(worktreesDir)) {
+    mkdirSync(worktreesDir, { recursive: true });
+  }
+
+  // .gitignore에 추가
   try {
-    const defaultBranch = getDefaultBranch(gitRoot);
-
-    // 원격에서 최신 커밋 가져오기
-    execSync("git fetch origin", {
-      cwd: worktreePath,
-      encoding: "utf-8",
-      stdio: "pipe",
-    });
-
-    // rebase로 최신화 시도
-    try {
-      execSync(`git rebase origin/${defaultBranch}`, {
-        cwd: worktreePath,
-        encoding: "utf-8",
-        stdio: "pipe",
-      });
-    } catch {
-      // rebase 충돌 시 취소 후 merge로 대체
-      try {
-        execSync("git rebase --abort", {
-          cwd: worktreePath,
-          stdio: "pipe",
-        });
-      } catch { /* 이미 취소된 경우 무시 */ }
-
-      try {
-        execSync(`git merge origin/${defaultBranch} --no-edit`, {
-          cwd: worktreePath,
-          encoding: "utf-8",
-          stdio: "pipe",
-        });
-      } catch {
-        // merge도 실패하면 포기 (현재 상태 유지)
-        try {
-          execSync("git merge --abort", {
-            cwd: worktreePath,
-            stdio: "pipe",
-          });
-        } catch { /* ignore */ }
-      }
+    const gitignorePath = join(gitRoot, ".gitignore");
+    const content = existsSync(gitignorePath)
+      ? readFileSync(gitignorePath, "utf-8")
+      : "";
+    if (!content.includes(WORKTREES_DIR)) {
+      appendFileSync(gitignorePath, `\n${WORKTREES_DIR}/\n`);
     }
   } catch {
-    // fetch 실패 (네트워크 등) → 현재 상태 유지
+    // 실패 무시
   }
 }
 
@@ -247,9 +228,8 @@ function getDefaultBranch(gitRoot: string): string {
     }).trim();
     return ref.replace("refs/remotes/origin/", "");
   } catch {
-    // fallback: main 또는 dev 확인
     try {
-      execSync("git rev-parse --verify dev", {
+      execSync("git rev-parse --verify origin/dev", {
         cwd: gitRoot,
         stdio: "pipe",
       });
@@ -257,29 +237,5 @@ function getDefaultBranch(gitRoot: string): string {
     } catch {
       return "main";
     }
-  }
-}
-
-function getCurrentBranch(dir: string): string {
-  try {
-    return execSync("git branch --show-current", {
-      cwd: dir,
-      encoding: "utf-8",
-      stdio: "pipe",
-    }).trim();
-  } catch {
-    return "unknown";
-  }
-}
-
-function checkBranchExists(gitRoot: string, branchName: string): boolean {
-  try {
-    execSync(`git rev-parse --verify ${branchName}`, {
-      cwd: gitRoot,
-      stdio: "pipe",
-    });
-    return true;
-  } catch {
-    return false;
   }
 }

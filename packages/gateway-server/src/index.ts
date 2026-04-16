@@ -13,7 +13,7 @@ import { listProfiles, getProfile } from "./profiles.js";
 import { routeMessage, type IncomingMessage } from "./router.js";
 import { buildSandboxConfig, buildDockerCommand } from "./sandbox.js";
 import { addCronJob, listCronJobs, deleteCronJob, toggleCronJob } from "./cron.js";
-import { ensureWorktree, removeWorktree, listWorktrees } from "./worktree.js";
+import { createTaskWorktree, cleanupWorktree, cleanupOldWorktrees, listWorktrees } from "./worktree.js";
 
 const server = new McpServer({
   name: "jarvis-gateway",
@@ -276,13 +276,14 @@ server.tool(
 
 server.tool(
   "jarvis_worktree_manage",
-  "멤버별 git worktree를 관리합니다 (목록/생성/삭제)",
+  "작업별 git worktree를 관리합니다 (목록/생성/정리)",
   {
-    action: z.enum(["list", "ensure", "remove"]).describe("액션"),
+    action: z.enum(["list", "create", "cleanup"]).describe("액션"),
     project_dir: z.string().describe("프로젝트 디렉토리 경로"),
-    user_id: z.string().optional().describe("유저 ID (ensure/remove 시)"),
+    user_id: z.string().optional().describe("유저 ID (create 시)"),
+    max_age_hours: z.number().optional().describe("정리 기준 시간 (cleanup 시, 기본 24)"),
   },
-  async ({ action, project_dir, user_id }) => {
+  async ({ action, project_dir, user_id, max_age_hours }) => {
     if (action === "list") {
       const wts = listWorktrees(project_dir);
       return {
@@ -295,18 +296,21 @@ server.tool(
       };
     }
 
-    if (action === "ensure" && user_id) {
-      const wt = ensureWorktree(project_dir, user_id);
+    if (action === "create" && user_id) {
+      const wt = createTaskWorktree(project_dir, user_id);
       return {
         content: [{ type: "text" as const, text: JSON.stringify(wt) }],
       };
     }
 
-    if (action === "remove" && user_id) {
-      const removed = removeWorktree(project_dir, user_id);
+    if (action === "cleanup") {
+      const cleaned = cleanupOldWorktrees(project_dir, max_age_hours ?? 24);
       return {
         content: [
-          { type: "text" as const, text: JSON.stringify({ success: removed }) },
+          {
+            type: "text" as const,
+            text: JSON.stringify({ cleaned }),
+          },
         ],
       };
     }

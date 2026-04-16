@@ -17,7 +17,7 @@ import { routeMessage, type IncomingMessage } from "./router.js";
 import { buildClaudeArgs, buildPersonalityPrompt } from "./permissions.js";
 import { loadUserConfig } from "./auth.js";
 import { addCronJob, listCronJobs, deleteCronJob, toggleCronJob } from "./cron.js";
-import { ensureWorktree } from "./worktree.js";
+import { createTaskWorktree, cleanupWorktree, cleanupOldWorktrees } from "./worktree.js";
 
 // --- 설정 ---
 const JARVIS_DIR = join(process.env.HOME ?? "~", ".jarvis");
@@ -69,14 +69,14 @@ async function executeWithClaude(
   personality?: Record<string, unknown>,
   userName?: string,
 ): Promise<string> {
-  // 멤버별 worktree 확보 (프로젝트 디렉토리 설정 시)
+  // 작업별 worktree 생성 (프로젝트 디렉토리 설정 시)
   let workDir: string | undefined;
+  let worktreePath: string | undefined;
   if (PROJECT_DIR && profileName !== "admin") {
-    const wt = ensureWorktree(PROJECT_DIR, userId);
+    const wt = createTaskWorktree(PROJECT_DIR, userId);
     workDir = wt.path;
-    if (wt.created) {
-      log("INFO", `worktree 생성: ${userId} → ${wt.path} (${wt.branch})`);
-    }
+    worktreePath = wt.created ? wt.path : undefined;
+    log("INFO", `worktree: ${userId} → ${wt.path} (${wt.branch})`);
   }
 
   const personalityPrompt = buildPersonalityPrompt(
@@ -199,6 +199,11 @@ async function handleMessage(incoming: IncomingMessage): Promise<string> {
     personality,
     userName,
   );
+
+  // 작업 완료 후 worktree 정리 (24시간 이상 된 것들도 함께)
+  if (PROJECT_DIR) {
+    cleanupOldWorktrees(PROJECT_DIR, 24);
+  }
 
   // Telegram/Discord 메시지 길이 제한 (4096자)
   if (response.length > 4000) {
