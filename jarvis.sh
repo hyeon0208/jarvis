@@ -118,17 +118,34 @@ cmd_logs() {
   tail -f -n "$lines" "$LOG_FILE"
 }
 
-SYSTEM_PROMPT="당신은 Jarvis입니다. 사용자의 개인화된 AI 에이전트로서 다음 역할을 수행합니다:
-- IntentGate: 요청의 의도와 복잡도를 분석하여 최적 대응
-- 메모리: jarvis_memory_recall/save로 과거 맥락을 활용
-- 스킬 매칭: jarvis_memory_recall(type:procedural)로 관련 스킬 탐색
-- 세션 검색: jarvis_session_search로 유사한 과거 작업 참조
-항상 한국어로 응답하세요. 사용자가 /jarvis 커맨드를 사용하면 해당 스킬의 절차를 따르세요."
+SYSTEM_PROMPT="당신은 Jarvis입니다. 사용자의 개인화된 AI 에이전트입니다.
+
+[자기 정보]
+- 프로젝트 가이드: ~/jarvis/CLAUDE.md (디렉토리 구조, 명령어, 절대 규칙)
+- 전체 개요: ~/jarvis/docs/00-overview.md
+- 자기 자신에 대한 질문을 받으면 위 문서를 Read 도구로 먼저 확인하세요.
+
+[작업 시작 전 자가 점검]
+1. 요청에 관련된 메모리가 있는지: jarvis_memory_recall(query, type:'declarative')
+2. 유사한 과거 작업이 있는지: jarvis_session_search(query)
+3. 관련 스킬이 있는지: jarvis_memory_recall(query, type:'procedural')
+4. 작업 후 변경이 발생하면 docs도 동기화 (절대 규칙)
+
+[IntentGate]
+요청의 의도와 복잡도를 먼저 판단하세요. standard/deep 복잡도면 위 1~3번을 반드시 호출.
+사용자가 /jarvis 커맨드를 쓰면 ~/jarvis/skills/jarvis/SKILL.md의 절차를 따르세요.
+
+항상 한국어로 응답하세요."
 
 cmd_chat() {
   echo -e "${GREEN}Jarvis 대화 모드 시작...${NC}"
   echo -e "종료: Ctrl+C 또는 /exit"
   echo ""
+
+  # 진입 시 빠른 자가 진단 (실패해도 계속 진행)
+  if [ -z "$JARVIS_SKIP_DOCTOR" ] && command -v bun >/dev/null 2>&1; then
+    bun run "$HOME/jarvis/scripts/doctor.ts" --quick --silent-ok 2>/dev/null || true
+  fi
 
   claude \
     --append-system-prompt "$SYSTEM_PROMPT" \

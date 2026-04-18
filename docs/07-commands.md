@@ -61,6 +61,7 @@ Owner가 로컬 터미널에서 사용하는 명령입니다.
 | `jarvis list profiles\|users\|channels\|pending` | 목록 조회 |
 | `jarvis doctor` | 전체 진단 (11개 체크) |
 | `jarvis doctor --quick` | 네트워크 제외 빠른 진단 |
+| `jarvis doctor --silent-ok` | 모두 OK면 출력 없음 (`jarvis chat` 진입 시 자동 호출) |
 
 상세 사용법: [Owner CLI 가이드](08-owner-cli.md)
 
@@ -72,6 +73,7 @@ Owner가 로컬 터미널에서 사용하는 명령입니다.
 # 터미널에서 직접 대화 — 데몬 불필요
 $ jarvis chat
 Jarvis 대화 모드 시작...
+# (진입 시 jarvis doctor --quick --silent-ok 자동 실행, 문제 있을 때만 출력)
 
 # 외부 채널(Telegram 등) 요청을 받으려면 데몬 기동
 $ jarvis start

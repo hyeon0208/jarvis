@@ -29,6 +29,7 @@
 
 ```
 ~/jarvis/
+├── CLAUDE.md               Claude Code가 자동 로드하는 자기소개서
 ├── packages/
 │   ├── memory-server/      MCP 서버 소스 (메모리 엔진)
 │   ├── gateway-server/     MCP 서버 소스 + Daemon
@@ -81,9 +82,14 @@ Owner 터미널에서
     $ jarvis chat
          │
          ▼
-    claude 프로세스 1개 spawn (인터랙티브)
+    1. jarvis doctor --quick --silent-ok 자가 진단
+         │ (문제가 있을 때만 출력, JARVIS_SKIP_DOCTOR=1 로 우회 가능)
+         ▼
+    2. claude 프로세스 1개 spawn (인터랙티브)
          │
-         ├─ Jarvis 성격 주입 (--append-system-prompt)
+         ├─ Jarvis 성격 + 자기 정보 주입 (--append-system-prompt)
+         │   - ~/jarvis/CLAUDE.md, docs/00-overview.md 참조 안내
+         │   - IntentGate 자가 점검 절차 (memory_recall, session_search)
          ├─ ~/.claude/settings.json의 MCP 서버 자동 로드
          │   ├─ jarvis-memory
          │   └─ jarvis-gateway

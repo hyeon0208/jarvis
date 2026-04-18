@@ -150,6 +150,14 @@ jarvis_session_search(query: "JPA N+1 문제")
 jarvis_sync_sessions
 ```
 
+### 현재 적재 상태 확인
+
+```bash
+sqlite3 ~/.jarvis/data/memory.db "SELECT COUNT(*) FROM sessions; SELECT COUNT(*) FROM session_messages;"
+```
+
+> ⚠️ **주의**: 세션 자동 적재 파이프라인은 **`auto-memory` 훅 → `~/.jarvis/sessions/*.json` → `jarvis_sync_sessions` MCP 호출** 3단계입니다. 마지막 sync 단계는 자동이 아니므로, `jarvis_session_search`가 빈 결과만 반환한다면 위 SQL로 0건인지 먼저 확인하고 수동 sync가 필요합니다.
+
 ## IntentGate와 메모리 연동
 
 `/jarvis` 커맨드로 요청하면 **자동으로 메모리를 프리로딩**합니다:
@@ -269,6 +277,23 @@ jarvis_dream_history
 | SQLite DB | `~/.jarvis/data/memory.db` |
 | 세션 로그 | `~/.jarvis/sessions/` |
 | 스킬 인덱스 | `~/.jarvis/skill-index.json` |
+
+## 컨텍스트/메모리 초기화
+
+상황별 초기화 옵션입니다. 아래로 갈수록 강한 초기화이며 복구 불가능합니다.
+
+| 명령 | 무엇이 초기화되나 | 무엇이 남나 |
+|------|-----------------|-----------|
+| `/clear` (Claude Code 슬래시) | 현재 대화의 컨텍스트 | 시스템 프롬프트, MCP 서버, 모든 영구 데이터 |
+| `/compact` (Claude Code 슬래시) | 현재 대화를 요약본으로 압축 | 요약 + 시스템 프롬프트 |
+| `Ctrl+C` 후 `claude` 재실행 | 현재 transcript 종료, 새 세션 | `~/.claude/projects/.../*.jsonl` 모든 과거 transcript |
+| `jarvis_memory_forget` (MCP) | 특정 메모리 항목 1개 | 그 외 모든 데이터 |
+| `rm -rf ~/.jarvis/sessions/` | auto-memory 훅이 기록한 임시 JSON | DB, 유저 설정 |
+| `rm ~/.jarvis/data/memory.db*` | **Jarvis의 모든 메모리 (선언/절차/세션) 영구 삭제** | 유저 설정, 채널 설정 |
+| `rm -rf ~/.jarvis/users/` | 모든 유저 personality + cron_jobs | DB, 페어링 대기열 |
+| `rm -rf ~/.jarvis/` | **모든 런타임 데이터** | 소스 코드(`~/jarvis/`)만 |
+
+> 파괴적 명령은 **반드시 사전 백업** 후 실행하세요. `cp -r ~/.jarvis ~/.jarvis.bak.$(date +%Y%m%d)` 권장.
 
 ## 다음 단계
 

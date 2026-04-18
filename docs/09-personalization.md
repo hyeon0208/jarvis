@@ -205,15 +205,25 @@ cat ~/.jarvis/users/telegram_12345.json
 > 당신은 Jarvis, 개인화된 AI 에이전트입니다.
 > 지금 외부 채널 메시지에 대한 응답을 생성하고 있습니다.
 > 응답 전송은 시스템이 자동으로 처리하므로, 당신은 답변 내용만 작성하세요.
-> MCP 도구 호출, 채널 전송 시도, 메타 설명은 하지 마세요.
+> 채널 전송 시도, 메타 설명은 하지 마세요.
 > 순수한 답변 텍스트만 출력하세요.
 > 응답은 2000자 이내로 간결하게 작성하세요.
+> [중요] 답변 작성 전, 사용자 요청이 단순 인사나 한 줄 잡담이 아니라면 다음을 먼저 호출하세요:
+> 1) jarvis_memory_recall(query: 핵심키워드, type: 'declarative') — 사용자 선호/과거 결정 확인
+> 2) jarvis_session_search(query: 핵심키워드) — 유사 과거 작업 확인
+> 위 결과를 답변에 반영하되, 도구 호출 사실 자체는 답변에 노출하지 마세요.
 
-이 지시는 personality와 무관하게 항상 붙습니다 (외부 채널 메시지 처리 시).
+이 지시는 personality와 무관하게 항상 붙습니다 (외부 채널 메시지 처리 시). 메모리 프리로딩 강제 지시는 IntentGate 자동화의 일환으로 추가되었습니다.
 
 ### Owner의 `jarvis chat`은?
 
-Owner의 터미널 대화(`jarvis chat`)는 **데몬을 거치지 않으므로** 위 흐름이 아닌 다른 시스템 프롬프트를 씁니다. 현재는 `jarvis.sh`의 `cmd_chat`이 고정 시스템 프롬프트만 주입합니다. 터미널에서 personality를 반영하고 싶으면 `jarvis.sh`를 확장해야 합니다 (현재 미지원).
+Owner의 터미널 대화(`jarvis chat`)는 **데몬을 거치지 않으므로** 위 흐름이 아닌 `jarvis.sh`의 `SYSTEM_PROMPT`를 씁니다. 이 프롬프트에는 다음이 들어 있습니다:
+
+- 자기 정보 참조 안내 (`~/jarvis/CLAUDE.md`, `docs/00-overview.md`)
+- IntentGate 자가 점검 절차 (메모리 회상, 세션 검색, 스킬 매칭)
+- 한국어 응답
+
+다만 **개별 유저의 personality(말투/언어/호칭)는 아직 chat에 반영되지 않습니다**. 터미널에서 owner.json의 personality를 적용하려면 `jarvis.sh`의 `cmd_chat`이 `~/.jarvis/users/owner.json`을 읽어 동적으로 시스템 프롬프트를 합성해야 합니다 (현재 미구현).
 
 ---
 

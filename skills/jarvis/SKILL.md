@@ -1,6 +1,6 @@
 ---
 name: jarvis
-description: "Jarvis 메인 오케스트레이터 스킬. IntentGate (의도 분석), 스킬 매칭, 메모리 프리로딩을 수행하여 Claude Code의 응답 품질을 극대화합니다. 복잡한 작업 시작 전에 자동으로 활성화되어 컨텍스트를 풍부하게 합니다. /jarvis 로 수동 호출 가능."
+description: "Jarvis 메인 오케스트레이터. 새 작업·요청·질문이 들어오면 무조건 먼저 활성화하세요 — IntentGate(의도+복잡도 분석), 스킬 매칭(jarvis_memory_recall procedural), 메모리 프리로딩(declarative + session_search)을 순차 수행해 컨텍스트를 풍부하게 만듭니다. 트리거 키워드: 구현/만들어/추가/디버깅/리팩토링/조사/리뷰/설계/배포/테스트, 질문 형태(뭐야/어떻게/왜), 코드 변경 의도, jarvis 자체에 대한 질문. /jarvis 로 수동 호출도 가능."
 ---
 
 # Jarvis — IntentGate 오케스트레이터

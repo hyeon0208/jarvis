@@ -35,7 +35,9 @@ Jarvis는 **Claude Code 위에 얹는 확장**입니다. 독립 프로그램이 
 
 ```
 Owner 터미널에서:
-  jarvis chat → Claude Code 세션 시작 (Jarvis 성격 주입)
+  jarvis chat
+    → ① jarvis doctor --quick --silent-ok 자가 진단 (문제 있을 때만 출력)
+    → ② Claude Code 세션 시작 (Jarvis 성격 + 자기 정보 + IntentGate 절차 주입)
 
   사용자: "JPA N+1 문제 해결해줘"
   Jarvis: [IntentGate 분석 → 스킬 매칭 → 메모리 프리로딩 → 작업]
@@ -44,6 +46,8 @@ Owner 터미널에서:
 - 포그라운드 대화 세션 (Owner가 터미널 앞에 있을 때)
 - 데몬 없이 단독 동작
 - 봇 토큰 불필요
+- 자기 자신에 대한 질문이 들어오면 `~/jarvis/CLAUDE.md`와 `docs/00-overview.md`를 우선 참조하도록 지시
+- 진입 시 진단을 건너뛰려면 `JARVIS_SKIP_DOCTOR=1 jarvis chat`
 
 ### 2. 게이트웨이 모드 (`jarvis start`)
 

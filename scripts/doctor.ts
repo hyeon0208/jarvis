@@ -6,6 +6,7 @@
  * jarvis doctor                 — 전체 진단
  * jarvis doctor --quick         — 네트워크 체크 제외 (빠른 검사)
  * jarvis doctor --skip-network  — --quick와 동일
+ * jarvis doctor --silent-ok     — 모두 정상이면 출력 없음 (jarvis chat 진입 등 자동 호출용)
  */
 
 import { runAllChecks, type CheckResult } from "./lib/diagnostics.js";
@@ -25,16 +26,28 @@ function severityMark(severity: CheckResult["severity"]): string {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const skipNetwork = args.includes("--quick") || args.includes("--skip-network");
-
-  console.log(`\n${GREEN}Jarvis 진단 시작${RESET}${skipNetwork ? " (네트워크 제외)" : ""}\n`);
+  const silentOk = args.includes("--silent-ok");
 
   const summary = await runAllChecks({ skipNetwork });
+
+  const hasIssue = summary.hasFail || summary.results.some((r) => r.severity === "WARN");
+
+  // silent-ok 모드: 문제 없으면 조용히 종료
+  if (silentOk && !hasIssue) {
+    return;
+  }
+
+  console.log(`\n${GREEN}Jarvis 진단 시작${RESET}${skipNetwork ? " (네트워크 제외)" : ""}\n`);
 
   let okCount = 0;
   let warnCount = 0;
   let failCount = 0;
 
   for (const r of summary.results) {
+    if (silentOk && r.severity === "OK") {
+      okCount++;
+      continue;
+    }
     console.log(`  ${severityMark(r.severity)}  ${r.name}: ${r.message}`);
     if (r.hint && r.severity !== "OK") {
       console.log(`      ${DIM}힌트: ${r.hint}${RESET}`);
