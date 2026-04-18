@@ -24,6 +24,7 @@ interface ProfileClaudeConfig {
   add_dirs?: string[];
   system_prompt?: string;
   model?: string;
+  effort?: "low" | "medium" | "high" | "max";
   skip_permissions?: boolean;
 }
 
@@ -99,6 +100,9 @@ export function buildClaudeArgs(
   if (claude?.skip_permissions) {
     args.push("--dangerously-skip-permissions");
 
+    if (claude.model) args.push("--model", claude.model);
+    if (claude.effort) args.push("--effort", claude.effort);
+
     if (options?.systemPrompt) {
       args.push("--append-system-prompt", options.systemPrompt);
     }
@@ -135,6 +139,11 @@ export function buildClaudeArgs(
   // 모델
   if (claude?.model) {
     args.push("--model", claude.model);
+  }
+
+  // Effort (low/medium/high/max)
+  if (claude?.effort) {
+    args.push("--effort", claude.effort);
   }
 
   // 시스템 프롬프트 (YAML 설정 + 런타임 추가)

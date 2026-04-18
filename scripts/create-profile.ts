@@ -242,7 +242,21 @@ async function main() {
   const modelMap = ["opus", "sonnet", "haiku", ""];
   const model = modelMap[modelChoice];
 
-  // 8. 타임아웃
+  // 8. Effort 선택
+  console.log("\n\x1b[32m── Effort 레벨 ──\x1b[0m");
+  console.log("\x1b[33m이 프로필이 사용할 thinking effort 레벨입니다.");
+  console.log("높을수록 더 깊이 사고하지만 응답이 느리고 비용이 증가합니다.\x1b[0m\n");
+  const effortChoice = await askChoice("Effort 레벨을 선택하세요:", [
+    "low    — 빠르고 저렴, 단순 작업에 적합",
+    "medium — 균형 (기본값)",
+    "high   — 깊이 사고, 복잡한 작업에 적합",
+    "max    — 최대 추론, 매우 복잡한 설계/디버깅에 적합",
+    "기본값 사용 (Claude Code 설정에 따름)",
+  ]);
+  const effortMap = ["low", "medium", "high", "max", ""];
+  const effort = effortMap[effortChoice];
+
+  // 9. 타임아웃
   console.log("\n\x1b[33mClaude가 한 요청을 처리하는 최대 시간입니다.");
   console.log("초과하면 자동 중단됩니다. (60=1분, 300=5분, 600=10분)\x1b[0m");
   const timeoutStr = await ask("타임아웃 (초, 기본 300):");
@@ -253,6 +267,7 @@ async function main() {
   console.log(`이름:       ${name}`);
   console.log(`설명:       ${description}`);
   console.log(`모델:       ${model || "(기본값)"}`);
+  console.log(`Effort:     ${effort || "(기본값)"}`);
   console.log(`허용 도구:  ${allowedTools.length}개`);
   console.log(`차단 도구:  ${disallowedTools.length}개`);
   console.log(`디렉토리:   ${addDirs.length > 0 ? addDirs.join(", ") : "(제한 없음)"}`);
@@ -270,6 +285,7 @@ async function main() {
     description,
     claude: {
       ...(model ? { model } : {}),
+      ...(effort ? { effort } : {}),
       allowed_tools: allowedTools,
       disallowed_tools: disallowedTools,
       ...(addDirs.length > 0 ? { add_dirs: addDirs } : {}),
