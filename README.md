@@ -4,6 +4,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+> 처음 보신다면 **[docs/00-overview.md](docs/00-overview.md)** 를 먼저 읽어보세요.
+> 디렉토리 구조, 워크플로우, 설정, MCP, 보안, 명령어를 한 번에 정리한 문서입니다.
+
 ## 개요
 
 Jarvis는 [Claude Code](https://claude.ai/claude-code)를 기반으로 구축된 개인화 AI 에이전트입니다.
