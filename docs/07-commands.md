@@ -33,6 +33,37 @@ Owner가 로컬 터미널에서 사용하는 명령입니다.
 | `jarvis install` | 맥 부팅 시 자동 시작 (launchd 등록) |
 | `jarvis uninstall` | 자동 시작 해제 |
 
+### 설정 마법사
+
+| 명령 | 설명 |
+|------|------|
+| `jarvis create-profile` | 프로필 생성 마법사 (신규) |
+| `jarvis edit-profile <name>` | 기존 프로필 수정 (`[현재값]` 표시) |
+| `jarvis add-project` | 프로젝트 추가 마법사 (디렉토리 자동 생성) |
+| `jarvis add-channel` | 채널 추가 + 토큰 + 라이브 검증 |
+| `jarvis install-mcp [--dry-run]` | Claude Code settings.json idempotent 패치 |
+
+### 관리 명령 (비대화형)
+
+| 명령 | 설명 |
+|------|------|
+| `jarvis pair list` | 대기 중인 페어링 목록 |
+| `jarvis pair approve <code> [profile]` | 페어링 승인 (기본: observer) |
+| `jarvis pair reject <user_id>` | 페어링 거부 |
+| `jarvis project ls\|add\|rm` | 프로젝트 CRUD |
+| `jarvis channel ls\|enable\|disable\|token <name> [value]` | 채널 CRUD |
+| `jarvis user ls\|show\|profile\|rename\|rm <user_id>` | 유저 관리 |
+
+### 조회/진단
+
+| 명령 | 설명 |
+|------|------|
+| `jarvis list profiles\|users\|channels\|pending` | 목록 조회 |
+| `jarvis doctor` | 전체 진단 (11개 체크) |
+| `jarvis doctor --quick` | 네트워크 제외 빠른 진단 |
+
+상세 사용법: [관리 CLI 가이드](08-admin-cli.md)
+
 ### 사용 예시
 
 ```bash

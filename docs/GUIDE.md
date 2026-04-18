@@ -13,6 +13,7 @@
 | [05. 개발 워크플로우](05-dev-workflow.md) | /dev 커맨드, git 워크플로우, worktree |
 | [06. 메모리 시스템](06-memory.md) | 3계층 메모리, Dreaming, 스킬 생성 |
 | [07. 커맨드 레퍼런스](07-commands.md) | 터미널/스킬/채널/MCP 전체 명령 목록 |
+| [08. 관리 CLI](08-admin-cli.md) | pair/list/doctor/project/channel/user 상세 가이드 + 마법사 + 자동 진단 |
 
 ## 빠른 시작
 

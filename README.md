@@ -299,10 +299,33 @@ jarvis install             # launchd 등록
 jarvis uninstall           # 등록 해제
 ```
 
+```bash
+# 설정 마법사 (인터랙티브)
+jarvis create-profile      # 프로필 생성
+jarvis edit-profile <name> # 기존 프로필 수정 ([현재값] 표시)
+jarvis add-project         # 프로젝트 추가 (디렉토리 자동 생성)
+jarvis add-channel         # 채널 추가 + 토큰 입력 + 라이브 검증
+jarvis install-mcp         # Claude Code settings.json 자동 패치
+```
+
+```bash
+# 관리 명령 (비대화형, 한 줄 실행)
+jarvis pair list                          # 대기 페어링 목록
+jarvis pair approve <code> <profile>      # 페어링 승인
+jarvis pair reject <user_id>              # 페어링 거부
+jarvis list profiles|users|channels       # 조회
+jarvis doctor [--quick]                   # 진단 (11개 항목)
+jarvis project ls|add|rm                  # 프로젝트 CRUD
+jarvis channel ls|enable|disable|token    # 채널 CRUD
+jarvis user ls|show|profile|rename|rm     # 유저 관리
+```
+
 > **`jarvis chat`과 `jarvis start`는 별개입니다.**
 > - `jarvis chat` — 본인이 터미널에서 직접 Jarvis와 대화. 데몬 없이 단독 사용 가능.
 > - `jarvis start` — 팀원이 Telegram/Discord/Slack으로 접근할 수 있도록 백그라운드 리스닝.
 > - 혼자만 쓴다면 **`jarvis chat`만으로 충분**합니다.
+
+상세 가이드: [docs/08-admin-cli.md](docs/08-admin-cli.md)
 
 ### Claude Code 스킬 커맨드 (대화 중 사용)
 
