@@ -177,7 +177,7 @@ Owner: main 브랜치에서 직접 작업
       "path": "/Users/hyeonjun/Desktop/프로젝트/vingle-backend",
       "parent_branch": "dev",
       "repo": "cosmos-official/vingle-backend",
-      "allowed_profiles": ["admin", "developer"],
+      "allowed_profiles": ["owner", "developer"],
       "branch_prefix": "feature"
     }
   }
@@ -189,7 +189,7 @@ Owner: main 브랜치에서 직접 작업
 | `path` | 로컬 git clone 경로 | `/Users/.../vingle-backend` |
 | `parent_branch` | pull 받을 브랜치 | `dev` 또는 `main` |
 | `repo` | GitHub owner/repo (PR 생성용) | `cosmos-official/vingle-backend` |
-| `allowed_profiles` | 접근 가능한 프로필 | `["admin", "developer"]` |
+| `allowed_profiles` | 접근 가능한 프로필 | `["owner", "developer"]` |
 | `branch_prefix` | 생성할 브랜치 접두사 | `feature`, `fix`, `hotfix` |
 
 ### 프로젝트 추가
@@ -203,7 +203,7 @@ Owner: main 브랜치에서 직접 작업
       "path": "/Users/hyeonjun/Desktop/프로젝트/vingle-frontend",
       "parent_branch": "main",
       "repo": "cosmos-official/vingle-frontend",
-      "allowed_profiles": ["admin", "developer"],
+      "allowed_profiles": ["owner", "developer"],
       "branch_prefix": "feature"
     }
   }
@@ -214,10 +214,10 @@ Owner: main 브랜치에서 직접 작업
 
 ## 필요한 프로필
 
-`/dev` 커맨드는 **write 권한이 필요**합니다. `admin`과 `developer` 프로필만 사용 가능합니다.
+`/dev` 커맨드는 **write 권한이 필요**합니다. `owner`와 `developer` 프로필만 사용 가능합니다.
 
 ```
-admin     → /dev 사용 가능 ✓
+owner     → /dev 사용 가능 ✓
 developer → /dev 사용 가능 ✓
 reviewer  → /dev 사용 불가 ✗ ("write 권한이 필요합니다")
 observer  → /dev 사용 불가 ✗

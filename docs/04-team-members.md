@@ -84,7 +84,7 @@ jarvis chat
 
 | 승인 명령 | 결과 |
 |----------|------|
-| `approve A1B2C3 admin` | 전체 권한 |
+| `approve A1B2C3 owner` | **Owner 본인 전용** — 전체 권한. 다른 팀원에게 부여 금지 |
 | `approve A1B2C3 developer` | 코드 읽기/쓰기, git, 테스트 |
 | `approve A1B2C3 reviewer` | 읽기 전용, git 조회 |
 | `approve A1B2C3 observer` | 질문/검색만 가능 |
@@ -100,12 +100,14 @@ jarvis chat
 
 ## 프로필 상세
 
-### admin (전체 권한)
+### owner (Owner 본인 전용)
 
 ```
 허용: 모든 도구, 모든 파일, 모든 명령, git 전체
-제한: 없음
-용도: Owner 본인
+제한: 없음 (--dangerously-skip-permissions)
+용도: Owner 본인의 외부 채널 계정에만 부여
+경고: 이 프로필은 jarvis 쉘 명령(Owner CLI)까지 실행 가능.
+     팀원에게는 absolutely 부여하지 마세요.
 ```
 
 ### developer (개발자)

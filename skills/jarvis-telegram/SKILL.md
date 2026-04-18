@@ -74,7 +74,7 @@ mcp__plugin_telegram_telegram__reply(
    - **observer**: 질문/검색만 가능 → 코드를 읽고 답변만 생성
    - **reviewer**: 읽기 + 분석 → 코드 분석, PR 리뷰 결과 생성
    - **developer**: 읽기/쓰기 → 코드 수정 가능 (sandbox 환경)
-   - **admin**: 전체 접근
+   - **owner**: 전체 접근 (Owner 본인 전용)
 3. 개인화 설정(tone, language, verbosity)에 맞게 응답을 생성합니다
 4. 결과를 Telegram으로 전송:
 ```

@@ -105,7 +105,7 @@ export function buildClaudeArgs(
   const claude = profile?.claude;
   const args = ["-p", prompt, "--output-format", "text"];
 
-  // admin (skip_permissions)
+  // owner 프로필 (skip_permissions: true) — 제한 없이 모든 도구 허용
   if (claude?.skip_permissions) {
     args.push("--dangerously-skip-permissions");
 

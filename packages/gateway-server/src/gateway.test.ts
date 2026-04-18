@@ -1,22 +1,22 @@
 import { describe, test, expect } from "bun:test";
 
 describe("Profiles (YAML)", () => {
-  test("Given profiles.yml When 로드 Then admin과 observer 존재", async () => {
+  test("Given profiles.yml When 로드 Then owner와 observer 존재", async () => {
     const { listProfiles } = await import("./profiles.js");
     const profiles = listProfiles();
 
     const names = profiles.map((p) => p.name);
-    expect(names).toContain("admin");
+    expect(names).toContain("owner");
     expect(names).toContain("observer");
   });
 
-  test("Given admin 프로필 When 권한 체크 Then 모든 권한 허용", async () => {
+  test("Given owner 프로필 When 권한 체크 Then 모든 권한 허용", async () => {
     const { checkPermission } = await import("./profiles.js");
 
-    expect(checkPermission("admin", "read")).toBe(true);
-    expect(checkPermission("admin", "write")).toBe(true);
-    expect(checkPermission("admin", "execute")).toBe(true);
-    expect(checkPermission("admin", "cron")).toBe(true);
+    expect(checkPermission("owner", "read")).toBe(true);
+    expect(checkPermission("owner", "write")).toBe(true);
+    expect(checkPermission("owner", "execute")).toBe(true);
+    expect(checkPermission("owner", "cron")).toBe(true);
   });
 
   test("Given observer 프로필 When 쓰기 권한 체크 Then 거부", async () => {
@@ -34,9 +34,9 @@ describe("Profiles (YAML)", () => {
 });
 
 describe("Sandbox Config", () => {
-  test("Given admin 프로필 When 샌드박스 설정 Then 비활성화", async () => {
+  test("Given owner 프로필 When 샌드박스 설정 Then 비활성화", async () => {
     const { buildSandboxConfig } = await import("./sandbox.js");
-    const config = buildSandboxConfig("admin");
+    const config = buildSandboxConfig("owner");
     expect(config.enabled).toBe(false);
   });
 
@@ -49,9 +49,9 @@ describe("Sandbox Config", () => {
 });
 
 describe("Claude Args (YAML)", () => {
-  test("Given admin When buildClaudeArgs Then skip-permissions 포함", async () => {
+  test("Given owner When buildClaudeArgs Then skip-permissions 포함", async () => {
     const { buildClaudeArgs } = await import("./permissions.js");
-    const args = buildClaudeArgs("admin", "test prompt");
+    const args = buildClaudeArgs("owner", "test prompt");
 
     expect(args).toContain("--dangerously-skip-permissions");
   });

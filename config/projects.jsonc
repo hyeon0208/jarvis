@@ -10,7 +10,7 @@
       "path": "/Users/hyeonjun/Desktop/프로젝트/vingle-backend",
       "parent_branch": "dev",
       "repo": "cosmos-official/vingle-backend",
-      "allowed_profiles": ["admin", "developer"],
+      "allowed_profiles": ["owner", "developer"],
       "branch_prefix": "feature"
     }
   }

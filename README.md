@@ -139,7 +139,7 @@ Jarvis Daemon (백그라운드, launchd로 자동 시작)
 
 ### 5. 프로필 기반 권한 관리
 
-| 기능 | admin | developer | reviewer | observer |
+| 기능 | owner | developer | reviewer | observer |
 |------|-------|-----------|----------|----------|
 | 코드 읽기 | 전체 | 프로젝트만 | 프로젝트만 | 프로젝트만 |
 | 코드 쓰기 | O | 프로젝트만 | X | X |
@@ -171,7 +171,7 @@ jarvis create-profile
 
 ### 6. 디렉토리 격리 (로컬 보호)
 
-admin 외 모든 프로필은 **지정된 프로젝트 디렉토리만** 접근 가능합니다.
+owner 외 모든 프로필은 **지정된 프로젝트 디렉토리만** 접근 가능합니다.
 Docker 없이 Claude CLI의 `--add-dir` + `--disallowedTools`로 보호합니다.
 
 ```
@@ -248,7 +248,7 @@ Jarvis: "PR이 생성되었습니다.
       "path": "/로컬/경로/vingle-backend",   // 로컬 git clone 경로
       "parent_branch": "dev",                // pull 받을 부모 브랜치
       "repo": "org/vingle-backend",          // GitHub owner/repo (PR 생성용)
-      "allowed_profiles": ["admin", "developer"],
+      "allowed_profiles": ["owner", "developer"],
       "branch_prefix": "feature"
     }
   }

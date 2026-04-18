@@ -135,10 +135,10 @@ Telegram에서 `/`를 입력하면 자동완성 메뉴가 표시됩니다.
 
 | 커맨드 | 설명 | 사용 가능 프로필 |
 |--------|------|----------------|
-| `/dev {작업}` | 워크플로우 시작 | admin, developer |
-| `/dev status` | 진행 상태 확인 | admin, developer |
-| `/dev done` | commit → push → PR 생성 | admin, developer |
-| `/dev cancel` | 워크플로우 취소 + 정리 | admin, developer |
+| `/dev {작업}` | 워크플로우 시작 | owner, developer |
+| `/dev status` | 진행 상태 확인 | owner, developer |
+| `/dev done` | commit → push → PR 생성 | owner, developer |
+| `/dev cancel` | 워크플로우 취소 + 정리 | owner, developer |
 
 ### 크론잡
 

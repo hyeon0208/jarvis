@@ -279,7 +279,7 @@ describe("UserProfileStore", () => {
     const owner = store.getOwner();
 
     expect(owner.user_id).toBe("owner");
-    expect(owner.profile).toBe("admin");
+    expect(owner.profile).toBe("owner");
   });
 
   test("Given 새 유저 생성 When 개인화 업데이트 Then 반영됨", () => {

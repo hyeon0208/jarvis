@@ -63,7 +63,7 @@ jarvis uninstall    # 해제
 외부 채널 요청은 **매번 허락을 받지 않고** 프로필 권한 범위 내에서 자동 실행됩니다.
 
 ```
-admin    → claude -p "..." --dangerously-skip-permissions
+owner     → claude -p "..." --dangerously-skip-permissions
 developer → claude -p "..." --allowedTools "Read,Write,Edit,Grep,..."
 reviewer  → claude -p "..." --allowedTools "Read,Grep,Glob,..."
 observer  → claude -p "..." --allowedTools "Read,Grep,WebSearch"
@@ -71,13 +71,9 @@ observer  → claude -p "..." --allowedTools "Read,Grep,WebSearch"
 
 **observer가 "코드 수정해줘"라고 요청해도**, Write/Edit 도구가 허용 목록에 없으므로 Claude가 수정을 수행할 수 없습니다.
 
-## 비용 보호
-
-admin 외의 프로필은 **요청당 $0.5 비용 제한**이 적용됩니다:
-
-```
-claude -p "..." --max-budget-usd 0.5
-```
+> `owner` 프로필은 `skip_permissions: true`로 모든 도구가 자동 허용됩니다.
+> 따라서 **Owner 본인에게만 부여**하세요. 다른 팀원에게 `owner` 프로필을 지정하면
+> `jarvis` 쉘 명령(Owner CLI)까지 실행할 수 있는 권한을 내주게 됩니다.
 
 ## 로그
 

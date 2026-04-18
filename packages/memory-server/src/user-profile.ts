@@ -79,7 +79,7 @@ export class UserProfileStore {
 
     this.db.run(
       `INSERT INTO user_profiles (user_id, name, profile, personality, preferences)
-       VALUES ('owner', 'Owner', 'admin', ?, '{}')`,
+       VALUES ('owner', 'Owner', 'owner', ?, '{}')`,
       [JSON.stringify(DEFAULT_PERSONALITY)],
     );
     return this.get("owner")!;
