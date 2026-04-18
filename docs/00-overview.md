@@ -91,7 +91,8 @@ Owner 터미널에서
          └─ 대화 시작
 ```
 
-데몬과 무관하게 독립 실행됩니다. 혼자만 쓸 때 가장 간단합니다.
+데몬과 무관하게 독립 실행됩니다. Owner가 터미널에서 직접 쓰는 용도입니다.
+외부 채널 데몬(`jarvis start`)과는 별개이며, **둘 다 켤 수 있습니다**.
 
 ### 2.2 Owner 한 번 질문 (터미널)
 
@@ -547,9 +548,11 @@ Owner CLI 명령(`jarvis pair`, `jarvis user profile` 등)은 **쉘 스크립트
 ~/jarvis/                소스 (public)           — git clone
 ~/.jarvis/               데이터 (private)         — 자동 생성
 
-3가지 모드
-  Owner 터미널    jarvis chat                     — 데몬 불필요
-  외부 채널      Telegram/Discord/Slack → 데몬    — jarvis start 필요
+2개의 독립 명령 (병행 가능)
+  Owner 터미널    jarvis chat                     — 포그라운드 대화 (봇 토큰 불필요)
+  외부 채널      Telegram/Discord/Slack → 데몬    — jarvis start (상시 백그라운드)
+
+그 위에 실행 가능한 워크플로우
   /dev 워크플로우  프로젝트 → 브랜치 → PR          — worktree 격리
 
 MCP 서버 2개 (Claude가 자식 프로세스로 spawn, stdio 통신)

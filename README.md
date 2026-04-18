@@ -46,16 +46,22 @@ jarvis doctor --quick       # 11개 체크, 모두 OK여야 함
 
 ### 4. 사용 시작
 
-```bash
-# 혼자 쓰기 (데몬 불필요)
-jarvis chat                 # 인터랙티브 대화
-jarvis ask "질문 내용"       # 한 번 질문
+`jarvis chat`과 `jarvis start`는 **역할이 다른 독립 명령**입니다. 하나만 써도 되고, 둘 다 켜도 됩니다.
 
-# 팀원/외부 채널 열기
-jarvis add-channel          # Telegram 봇 토큰 입력 + 활성화
-jarvis start                # 백그라운드 데몬 시작
+```bash
+# (A) 터미널에서 직접 대화 — 포그라운드, 봇 토큰 불필요
+jarvis chat                 # 인터랙티브
+jarvis ask "질문 내용"       # 한 번 질문
+```
+
+```bash
+# (B) 외부 채널(Telegram 등) 요청을 상시 받기 — 백그라운드 데몬 (선택)
+jarvis add-channel          # 채널 + 봇 토큰 설정 (최초 1회)
+jarvis start                # 데몬 기동
 jarvis install              # 맥 부팅 시 자동 시작 (launchd)
 ```
+
+(A)와 (B)는 서로 간섭하지 않으며 **병행 사용 가능**합니다. Owner 본인은 터미널에서 `chat`을 쓰고, 동시에 데몬이 팀원 Telegram 요청을 받아 처리하는 식으로 조합합니다.
 
 ### 5. 새 프로젝트/프로필 추가
 

@@ -66,20 +66,24 @@ Owner가 로컬 터미널에서 사용하는 명령입니다.
 
 ### 사용 예시
 
+두 명령은 **서로 독립**이며, 필요에 따라 하나만 쓰거나 둘 다 켤 수 있습니다.
+
 ```bash
-# 혼자 쓸 때 — 데몬 필요 없음
+# 터미널에서 직접 대화 — 데몬 불필요
 $ jarvis chat
 Jarvis 대화 모드 시작...
 
-# 팀원이 있을 때 — 데몬 시작
+# 외부 채널(Telegram 등) 요청을 받으려면 데몬 기동
 $ jarvis start
 Jarvis Daemon 시작됨 (PID: 55365)
 
-# 로그 확인
+# 데몬 로그 — 팀원 메시지 처리 내역
 $ jarvis logs
 [11:20:33] 수신: [telegram] 김철수: /dev 로그인 구현
 [11:20:34] claude 실행: profile=developer
 ```
+
+**병행 시나리오**: Owner가 `jarvis chat`으로 본인 작업을 하면서, 동시에 `jarvis start`(또는 launchd)로 팀원 요청을 백그라운드에서 자동 처리.
 
 ---
 

@@ -22,10 +22,20 @@
 # 설치
 git clone https://github.com/hyeon0208/jarvis.git ~/jarvis
 cd ~/jarvis && ./setup.sh
-
-# 혼자 쓸 때
-jarvis chat
-
-# 팀원이 있을 때
-jarvis start
 ```
+
+`jarvis chat`과 `jarvis start`는 **역할이 다른 독립 명령**이며, 필요에 따라 **둘 다 켤 수 있습니다**.
+
+```bash
+# 터미널에서 Jarvis와 직접 대화 (포그라운드)
+jarvis chat
+```
+
+```bash
+# 외부 채널(Telegram/Discord/Slack) 요청을 상시 받기 위한 백그라운드 데몬 (선택)
+jarvis add-channel      # 채널 + 봇 토큰 설정 (최초 1회)
+jarvis start            # 데몬 시작
+jarvis install          # 맥 부팅 시 자동 시작 (launchd, 선택)
+```
+
+두 명령의 관계는 [00. 전체 개요 §2 워크플로우](00-overview.md#2-전체-워크플로우)를 참고하세요.

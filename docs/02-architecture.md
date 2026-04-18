@@ -27,34 +27,52 @@ Jarvis는 **Claude Code 위에 얹는 확장**입니다. 독립 프로그램이 
       직접 대화              Telegram으로 요청
 ```
 
-## 두 가지 사용 모드
+## 두 가지 독립 사용 모드
+
+`jarvis chat`과 `jarvis start`는 **역할이 다른 독립 명령**입니다. 둘 중 하나만 쓸 수도 있고, 병행할 수도 있습니다.
 
 ### 1. 직접 대화 모드 (`jarvis chat`)
 
 ```
 Owner 터미널에서:
   jarvis chat → Claude Code 세션 시작 (Jarvis 성격 주입)
-  
+
   사용자: "JPA N+1 문제 해결해줘"
   Jarvis: [IntentGate 분석 → 스킬 매칭 → 메모리 프리로딩 → 작업]
 ```
 
-- 데몬 필요 없음
-- 혼자 쓸 때 이것만으로 충분
+- 포그라운드 대화 세션 (Owner가 터미널 앞에 있을 때)
+- 데몬 없이 단독 동작
+- 봇 토큰 불필요
 
 ### 2. 게이트웨이 모드 (`jarvis start`)
 
 ```
-팀원 모바일 → Telegram @jv_gw_bot → Jarvis Daemon → Claude
-                                        │
-                    ┌───────────────────┼──────────────────┐
-                    │                   │                  │
-              인증 확인           프로필 권한 매핑       응답 전송
-              (페어링 코드)      (--allowedTools)    (sendMessage)
+팀원 모바일 → Telegram 봇 → Jarvis Daemon → claude -p 스폰
+                                 │
+                    ┌────────────┼──────────────┐
+                    │            │              │
+              인증 확인       프로필 매핑     응답 전송
+              (페어링 코드)   (--allowedTools) (sendMessage)
 ```
 
-- 팀원이 Telegram으로 원격 접근
-- 백그라운드에서 24시간 동작
+- 백그라운드 데몬이 24시간 대기
+- 외부 채널(Telegram/Discord/Slack) 메시지를 자동 처리
+- Owner가 자리에 없어도 동작
+
+### 3. 병행 사용
+
+```
+Owner 터미널:            # 포그라운드
+  $ jarvis chat
+  > 본인 작업 대화 중
+
+Jarvis Daemon:           # 백그라운드
+  팀원 A 메시지 수신 → claude -p 자식 프로세스로 처리
+  팀원 B 메시지 수신 → 동시에 처리
+```
+
+Owner의 `jarvis chat`은 포그라운드 Claude Code 세션이고, `jarvis start`의 데몬은 별도 백그라운드 프로세스로 **서로 간섭하지 않습니다**. 자원이 충분하면 보통 둘 다 켜두고 씁니다.
 
 ## 왜 Telegram 봇인가?
 
