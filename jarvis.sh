@@ -187,22 +187,47 @@ case "${1:-}" in
   chat)             cmd_chat ;;
   ask)              shift; cmd_ask "$@" ;;
   create-profile)   bun run "$HOME/jarvis/scripts/create-profile.ts" ;;
+  pair)             shift; bun run "$HOME/jarvis/scripts/pair.ts" "$@" ;;
+  list)             shift; bun run "$HOME/jarvis/scripts/list.ts" "$@" ;;
+  doctor)           shift; bun run "$HOME/jarvis/scripts/doctor.ts" "$@" ;;
+  project)          shift; bun run "$HOME/jarvis/scripts/project.ts" "$@" ;;
+  channel)          shift; bun run "$HOME/jarvis/scripts/channel.ts" "$@" ;;
+  user)             shift; bun run "$HOME/jarvis/scripts/user.ts" "$@" ;;
+  edit-profile)     shift; bun run "$HOME/jarvis/scripts/edit-profile.ts" "$@" ;;
+  add-project)      bun run "$HOME/jarvis/scripts/add-project.ts" ;;
+  add-channel)      bun run "$HOME/jarvis/scripts/add-channel.ts" ;;
+  install-mcp)      shift; bun run "$HOME/jarvis/scripts/install-mcp.ts" "$@" ;;
   help|--help|-h)   ;; # 아래 기본 출력으로
   *)
-    echo "Jarvis"
+    echo -e "Jarvis"
     echo ""
-    echo "사용법: $0 {chat|ask|start|stop|restart|status|logs|install|uninstall|create-profile}"
+    echo -e "${GREEN}대화${NC}"
+    echo "  chat                       Jarvis와 대화 모드 시작"
+    echo "  ask \"...\"                  한 번 질문하고 답변 받기"
     echo ""
-    echo "  ${GREEN}chat${NC}             Jarvis와 대화 모드 시작"
-    echo "  ${GREEN}ask${NC} \"...\"        한 번 질문하고 답변 받기"
-    echo "  ${GREEN}create-profile${NC}   프로필 생성 마법사"
+    echo -e "${GREEN}데몬${NC}"
+    echo "  start/stop/restart         백그라운드 데몬 제어"
+    echo "  status                     실행 상태 확인"
+    echo "  logs [N]                   데몬 로그 실시간 표시"
+    echo "  install/uninstall          맥 부팅 자동 시작 등록/해제"
     echo ""
-    echo "  start            백그라운드 데몬 시작"
-    echo "  stop             데몬 종료"
-    echo "  restart          데몬 재시작"
-    echo "  status           실행 상태 확인"
-    echo "  logs [N]         데몬 로그 실시간 표시"
-    echo "  install          맥 부팅 시 자동 시작 등록 (launchd)"
-    echo "  uninstall        자동 시작 해제"
+    echo -e "${GREEN}설정${NC}"
+    echo "  create-profile             프로필 생성 마법사"
+    echo "  edit-profile <name>        기존 프로필 수정 마법사"
+    echo "  add-project                프로젝트 추가 마법사"
+    echo "  add-channel                채널 추가 마법사"
+    echo "  install-mcp [--dry-run]    Claude Code settings.json 자동 패치"
+    echo ""
+    echo -e "${GREEN}조회${NC}"
+    echo "  list profiles|users|channels|pending   목록 조회"
+    echo "  doctor [--quick]           전체 진단"
+    echo ""
+    echo -e "${GREEN}관리${NC}"
+    echo "  pair list                  페어링 대기 목록"
+    echo "  pair approve <code> <profile>  페어링 승인"
+    echo "  pair reject <user_id>      페어링 거부"
+    echo "  project add|rm|ls          프로젝트 CRUD"
+    echo "  channel ls|enable|disable|token <name> [value]"
+    echo "  user ls|show|profile|rename|rm <user_id>"
     ;;
 esac

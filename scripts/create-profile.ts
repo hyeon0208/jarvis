@@ -12,50 +12,9 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { ask, askChoice, askMultiChoice, askYesNo } from "./lib/prompt.js";
 
 const PROFILES_YML = join(process.env.HOME ?? "~", "jarvis", "config", "profiles.yml");
-
-// --- 프롬프트 유틸 ---
-
-async function ask(question: string): Promise<string> {
-  process.stdout.write(`\x1b[36m${question}\x1b[0m `);
-  for await (const line of console) {
-    return line.trim();
-  }
-  return "";
-}
-
-async function askChoice(question: string, options: string[]): Promise<number> {
-  console.log(`\n\x1b[36m${question}\x1b[0m`);
-  options.forEach((opt, i) => console.log(`  ${i + 1}. ${opt}`));
-  const answer = await ask("번호:");
-  const idx = Number(answer) - 1;
-  if (isNaN(idx) || idx < 0 || idx >= options.length) {
-    console.log("\x1b[33m잘못된 번호입니다. 다시 선택하세요.\x1b[0m");
-    return askChoice(question, options);
-  }
-  return idx;
-}
-
-async function askMultiChoice(question: string, options: string[]): Promise<number[]> {
-  console.log(`\n\x1b[36m${question}\x1b[0m (쉼표로 여러 개 선택, 예: 1,3,5)`);
-  options.forEach((opt, i) => console.log(`  ${i + 1}. ${opt}`));
-  const answer = await ask("번호:");
-  const indices = answer
-    .split(",")
-    .map((s) => Number(s.trim()) - 1)
-    .filter((i) => !isNaN(i) && i >= 0 && i < options.length);
-  if (indices.length === 0) {
-    console.log("\x1b[33m최소 1개를 선택하세요.\x1b[0m");
-    return askMultiChoice(question, options);
-  }
-  return indices;
-}
-
-async function askYesNo(question: string): Promise<boolean> {
-  const answer = await ask(`${question} (y/n):`);
-  return answer.toLowerCase().startsWith("y");
-}
 
 // --- 도구 카탈로그 ---
 

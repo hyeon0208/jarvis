@@ -286,6 +286,21 @@ async function main(): Promise<void> {
   // .env 로드
   loadEnv();
 
+  // 자동 진단 (JARVIS_SKIP_DOCTOR=1로 우회 가능)
+  if (!process.env.JARVIS_SKIP_DOCTOR) {
+    const { runStartupChecks } = await import("../../../scripts/lib/diagnostics.js");
+    const summary = runStartupChecks();
+    const failures = summary.results.filter((r) => r.severity === "FAIL");
+    if (failures.length > 0) {
+      log("ERROR", "설정 오류로 데몬을 시작할 수 없습니다. `jarvis doctor`로 확인하세요.");
+      for (const f of failures) {
+        log("ERROR", `  ✗ ${f.name}: ${f.message}${f.hint ? ` (힌트: ${f.hint})` : ""}`);
+      }
+      log("ERROR", "우회하려면 JARVIS_SKIP_DOCTOR=1 환경변수를 설정하세요.");
+      process.exit(2);
+    }
+  }
+
   // PID 파일 저장
   if (!existsSync(JARVIS_DIR)) mkdirSync(JARVIS_DIR, { recursive: true });
   writeFileSync(PID_FILE, String(process.pid));
