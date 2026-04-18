@@ -22,6 +22,7 @@ profiles:
     description: "전체 관리자"
     claude:
       skip_permissions: true
+      effort: max  # Owner 전용, 모든 작업에서 최대 추론
     timeout: 600
 
   # ──────────────────────────────────────
@@ -30,6 +31,7 @@ profiles:
   developer:
     description: "개발자 — 코드 읽기/쓰기, git, 테스트 실행"
     claude:
+      effort: xhigh  # 복잡한 코딩/디버깅을 위해 깊은 사고
       allowed_tools:
         # 읽기
         - Read
@@ -118,6 +120,7 @@ profiles:
   reviewer:
     description: "리뷰어 — 읽기 전용, git 조회"
     claude:
+      effort: high  # 코드 리뷰/분석은 깊이 사고가 필요
       allowed_tools:
         - Read
         - Glob
@@ -160,6 +163,7 @@ profiles:
   observer:
     description: "옵저버 — 질문/검색만"
     claude:
+      effort: low  # 단순 질문은 빠른 응답이 우선
       allowed_tools:
         - Read
         - Glob
