@@ -189,6 +189,7 @@ export function buildPersonalityPrompt(
   personality: Record<string, unknown>,
   userName?: string,
   channel?: string,
+  userId?: string,
 ): string {
   const parts: string[] = [];
 
@@ -208,6 +209,17 @@ export function buildPersonalityPrompt(
 
   if (userName) parts.push(`사용자 이름: ${userName}`);
   if (channel) parts.push(`채널: ${channel}`);
+
+  // user_id 격리 강제 — 환경변수 JARVIS_USER_ID로 자동 처리되지만,
+  // Claude가 명시 인자를 전달할 때도 정확한 값을 쓰도록 시스템 프롬프트에도 명시
+  if (userId) {
+    parts.push(
+      `[메모리 격리] 이 요청의 user_id는 "${userId}" 입니다.`,
+      "다른 유저의 메모리/세션을 참조하면 안 됩니다.",
+      "MCP 메모리 도구 호출 시 user_id 인자를 생략해도 환경변수로 자동 분리되지만,",
+      "명시할 경우 반드시 위 값을 그대로 사용하세요.",
+    );
+  }
 
   const tone = personality.tone as string | undefined;
   if (tone) {

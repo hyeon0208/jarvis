@@ -86,9 +86,11 @@ function ftsEscape(query) {
   return tokens.map((t) => `"${t}"`).join(" OR ");
 }
 
-// 이 훅은 Owner의 로컬 Claude Code 세션에서만 도므로 owner 메모리만 조회
-// (외부 채널 유저의 메모리가 owner 컨텍스트에 섞이지 않도록)
-const SCOPE_USER_ID = "owner";
+// 호출 컨텍스트의 user_id로 메모리를 격리합니다.
+// - Owner 로컬 chat: jarvis.sh가 JARVIS_USER_ID="owner"를 주입
+// - 외부 채널 (Telegram/Slack/Discord): 데몬이 spawn 시 "slack:U123" 같은 값 주입
+// - 환경변수가 없으면 안전하게 owner로 fallback
+const SCOPE_USER_ID = process.env.JARVIS_USER_ID || "owner";
 
 function searchDeclarative(db, query, limit = 3) {
   const fts = ftsEscape(query);
@@ -163,7 +165,7 @@ function buildContext(prompt, intent) {
     if (decl.length === 0 && sess.length === 0 && proc.length === 0) return null;
 
     const lines = [
-      `[Jarvis IntentGate] 카테고리=${intent.category}, 복잡도=${intent.complexity}. 다음 컨텍스트가 메모리에서 자동 로딩되었습니다:`,
+      `[Jarvis IntentGate] user_id=${SCOPE_USER_ID}, 카테고리=${intent.category}, 복잡도=${intent.complexity}. 다음 컨텍스트가 메모리에서 자동 로딩되었습니다 (해당 유저 격리):`,
     ];
 
     if (decl.length > 0) {

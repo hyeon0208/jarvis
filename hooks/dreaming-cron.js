@@ -99,14 +99,41 @@ function main() {
   const syncedCount = syncSessionLogs(sessions);
   console.log(`[Jarvis Dreaming] 세션 로그 동기화: ${syncedCount}건`);
 
-  // 2) 실제 Dreaming (memory.yml의 archive_days 자동 적용; hard 초과 시 더 짧게)
+  // 2) 실제 Dreaming — 등록된 모든 user_id별로 순회
+  //    (owner + telegram:NNN + slack:UXXX + discord:NNN ... 각각 격리 정리)
   const aggressive = sizeBeforeMb >= policy.hard_limit_mb;
   const staleDays = aggressive
     ? Math.max(7, Math.floor(policy.archive_days / 2))
     : undefined;
-  const report = dreaming.dream("owner", staleDays);
+
+  const userIds = db
+    .query(
+      `SELECT DISTINCT user_id FROM (
+         SELECT user_id FROM declarative_memory
+         UNION SELECT user_id FROM sessions
+         UNION SELECT user_id FROM user_profiles
+       ) WHERE user_id IS NOT NULL AND user_id != ''`,
+    )
+    .all()
+    .map((r) => r.user_id);
+
+  // 등록된 유저가 없어도 owner는 항상 처리
+  if (!userIds.includes("owner")) userIds.push("owner");
+
+  let totalMerged = 0;
+  let totalArchived = 0;
+  for (const uid of userIds) {
+    const report = dreaming.dream(uid, staleDays);
+    totalMerged += report.duplicates_merged;
+    totalArchived += report.stale_archived;
+    if (report.total_affected > 0) {
+      console.log(
+        `[Jarvis Dreaming]   - ${uid}: 병합 ${report.duplicates_merged}, 아카이브 ${report.stale_archived}`,
+      );
+    }
+  }
   console.log(
-    `[Jarvis Dreaming] 정리 완료: 중복 병합 ${report.duplicates_merged}건, 아카이브 ${report.stale_archived}건${aggressive ? " (hard 초과 → 공격적 정리)" : ""}`,
+    `[Jarvis Dreaming] 정리 완료: ${userIds.length}명 유저, 병합 총 ${totalMerged}, 아카이브 총 ${totalArchived}${aggressive ? " (hard 초과 → 공격적 정리)" : ""}`,
   );
 
   // 3) 오래된 세션 JSON 파일 정리

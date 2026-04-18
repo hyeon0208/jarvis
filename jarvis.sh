@@ -147,7 +147,8 @@ cmd_chat() {
     bun run "$HOME/jarvis/scripts/doctor.ts" --quick --silent-ok 2>/dev/null || true
   fi
 
-  claude \
+  # Owner 로컬 세션 — user_id를 owner로 명시 (메모리 격리)
+  JARVIS_USER_ID="owner" JARVIS_CHANNEL="terminal" claude \
     --append-system-prompt "$SYSTEM_PROMPT" \
     --name "Jarvis"
 }
@@ -159,7 +160,7 @@ cmd_ask() {
     return 1
   fi
 
-  claude -p "$prompt" \
+  JARVIS_USER_ID="owner" JARVIS_CHANNEL="terminal" claude -p "$prompt" \
     --append-system-prompt "$SYSTEM_PROMPT"
 }
 

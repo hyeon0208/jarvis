@@ -8,7 +8,7 @@ import { ProceduralMemoryStore } from "./procedural.js";
 import { SessionStore } from "./session-search.js";
 import { DreamingEngine } from "./dreaming.js";
 import { UserProfileStore } from "./user-profile.js";
-import { loadMemoryPolicy, getDbSizeMb } from "./memory-config.js";
+import { loadMemoryPolicy, getDbSizeMb, resolveUserId } from "./memory-config.js";
 
 const DB_PATH = join(process.env.HOME ?? "~", ".jarvis", "data", "memory.db");
 
@@ -43,8 +43,9 @@ server.tool(
     user_id: z.string().optional().describe("유저 ID (기본: owner)"),
   },
   async ({ type, key, content, tags, user_id }) => {
+    const resolvedUserId = resolveUserId(user_id);
     if (type === "declarative") {
-      const mem = declarative.save(key, content, tags ?? [], user_id ?? "owner");
+      const mem = declarative.save(key, content, tags ?? [], resolvedUserId);
       return {
         content: [
           {
@@ -92,10 +93,11 @@ server.tool(
   async ({ query, type: memType, limit: maxResults, user_id }) => {
     const searchType = memType ?? "all";
     const searchLimit = maxResults ?? 5;
+    const resolvedUserId = resolveUserId(user_id);
     const results: Array<{ type: string; data: unknown }> = [];
 
     if (searchType === "declarative" || searchType === "all") {
-      const declResults = declarative.search(query, user_id, searchLimit);
+      const declResults = declarative.search(query, resolvedUserId, searchLimit);
       for (const r of declResults) {
         results.push({ type: "declarative", data: r });
       }
@@ -135,7 +137,7 @@ server.tool(
     const maxItems = limit ?? 20;
 
     if (type === "declarative") {
-      const items = declarative.listByUser(user_id ?? "owner", maxItems);
+      const items = declarative.listByUser(resolveUserId(user_id), maxItems);
       return {
         content: [
           {
@@ -176,7 +178,7 @@ server.tool(
   },
   async ({ action, session_id, role, content, tool_count, file_changes, user_id }) => {
     if (action === "start") {
-      sessions.startSession(session_id, user_id ?? "owner");
+      sessions.startSession(session_id, resolveUserId(user_id));
       return {
         content: [{ type: "text" as const, text: `세션 시작: ${session_id}` }],
       };
@@ -204,13 +206,14 @@ server.tool(
 
 server.tool(
   "jarvis_session_search",
-  "과거 대화 세션에서 관련 정보를 검색합니다 (FTS5)",
+  "과거 대화 세션에서 관련 정보를 검색합니다 (FTS5, 호출자 user_id로 격리)",
   {
     query: z.string().describe("검색 쿼리"),
     limit: z.number().optional().describe("최대 결과 수 (기본: 3)"),
+    user_id: z.string().optional().describe("유저 ID (생략 시 env JARVIS_USER_ID 또는 owner)"),
   },
-  async ({ query, limit }) => {
-    const results = sessions.search(query, limit ?? 3);
+  async ({ query, limit, user_id }) => {
+    const results = sessions.search(query, limit ?? 3, resolveUserId(user_id));
     return {
       content: [
         {
@@ -242,7 +245,7 @@ server.tool(
   },
   async ({ user_id, stale_days }) => {
     // stale_days 미지정 시 dreaming.dream이 memory.yml에서 자동으로 읽음
-    const report = dreaming.dream(user_id ?? "owner", stale_days);
+    const report = dreaming.dream(resolveUserId(user_id), stale_days);
     return {
       content: [
         {
@@ -497,6 +500,21 @@ server.tool(
     if (dbSizeMb >= policy.hard_limit_mb) usageStatus = "hard_exceeded";
     else if (dbSizeMb >= policy.soft_limit_mb) usageStatus = "soft_exceeded";
 
+    // user_id별 격리 통계 — 채널 분리 가시화
+    const perUserDecl = (db as unknown as { query: (sql: string) => { all: () => unknown[] } })
+      .query(
+        `SELECT user_id, COUNT(*) as count
+         FROM declarative_memory WHERE archived = 0
+         GROUP BY user_id ORDER BY count DESC`,
+      )
+      .all() as Array<{ user_id: string; count: number }>;
+    const perUserSess = (db as unknown as { query: (sql: string) => { all: () => unknown[] } })
+      .query(
+        `SELECT user_id, COUNT(*) as count
+         FROM sessions GROUP BY user_id ORDER BY count DESC`,
+      )
+      .all() as Array<{ user_id: string; count: number }>;
+
     const stats = {
       declarative_memories: declarative.count(),
       procedural_memories: procedural.count(),
@@ -511,6 +529,10 @@ server.tool(
         archive_days: policy.archive_days,
       },
       usage_status: usageStatus,
+      // 채널별 격리 가시화
+      per_user_declarative: perUserDecl,
+      per_user_sessions: perUserSess,
+      current_user_id: resolveUserId(),
       dreaming_history: dreaming.history(1),
     };
 

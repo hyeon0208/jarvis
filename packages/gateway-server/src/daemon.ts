@@ -75,6 +75,7 @@ async function executeWithClaude(
     personality ?? {},
     userName,
     "external-channel",
+    userId,
   );
 
   const args = buildClaudeArgs(profileName, prompt, {
@@ -85,11 +86,21 @@ async function executeWithClaude(
   log("INFO", `claude 실행: profile=${profileName}, dir=${workDir ?? "default"}, prompt=${prompt.slice(0, 80)}...`);
 
   return new Promise((resolve) => {
+    // 사용자별 메모리 격리 핵심:
+    // 환경변수로 user_id를 주입하면 claude 자식 → MCP 서버 → IntentGate 훅까지
+    // 모두 이 환경변수를 상속받아 자동으로 올바른 유저 컨텍스트로 동작합니다.
+    // (LLM 자율성 의존 X, OS 프로세스 환경변수로 100% 보장)
+    const channelName = userId.includes(":") ? userId.split(":")[0] : "owner";
     const child = spawn("claude", args, {
       stdio: ["pipe", "pipe", "pipe"],
       cwd: workDir, // worktree 디렉토리에서 실행
       timeout: 5 * 60 * 1000,
-      env: { ...process.env },
+      env: {
+        ...process.env,
+        JARVIS_USER_ID: userId,
+        JARVIS_USER_NAME: userName ?? "",
+        JARVIS_CHANNEL: channelName,
+      },
     });
 
     let stdout = "";

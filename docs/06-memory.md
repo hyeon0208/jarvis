@@ -5,6 +5,64 @@
 Jarvis는 **3계층 메모리**로 세션 간 맥락을 유지합니다.
 과거에 했던 작업, 사용자 선호도, 자주 쓰는 스킬을 기억하여 더 나은 응답을 제공합니다.
 
+## 사용자별 메모리 격리
+
+장기기억은 **요청자 user_id로 격리**됩니다. 같은 DB를 쓰지만 채널별/유저별 데이터는 서로 보이지 않습니다.
+
+### user_id 형식
+
+| 출처 | user_id 예시 |
+|------|-------------|
+| Owner 로컬 (`jarvis chat`, `jarvis ask`) | `owner` |
+| Telegram | `telegram:1613476146` |
+| Slack | `slack:U07ABCDEF` |
+| Discord | `discord:123456789012345678` |
+| Webhook | `webhook:{외부 시스템 ID}` |
+
+각 채널 어댑터가 메시지 수신 시 자동으로 `${channel}:${external_id}` 형식을 만듭니다.
+
+### 격리 메커니즘 (3중 안전장치)
+
+1. **OS 환경변수 (가장 강함)**
+   - 데몬이 `claude` 자식 프로세스 spawn 시 `JARVIS_USER_ID=slack:U123` 주입
+   - 환경변수는 자식 프로세스(MCP 서버, 훅)에 자동 상속
+   - LLM이 잊을 수 없음 — OS 레벨 보장
+
+2. **MCP 도구 자동 fallback**
+   - `jarvis_memory_save/recall/list/dream`, `jarvis_session_save/search` 모두
+   - `user_id` 파라미터 누락 시 `process.env.JARVIS_USER_ID` 사용
+   - 구현: `packages/memory-server/src/memory-config.ts:resolveUserId()`
+
+3. **시스템 프롬프트 명시 (이중 안전)**
+   - 데몬이 `permissions.ts:buildPersonalityPrompt`로 user_id 정보를 시스템 프롬프트에 포함
+   - Claude가 명시 인자를 사용해도 정확한 값을 쓰도록
+
+### 격리 범위 (메모리 종류별)
+
+| 메모리 | user_id 분리? | 이유 |
+|--------|------------|------|
+| 선언적 메모리 (선호도/사실) | ✅ | 김철수 선호 ≠ 박영희 선호 |
+| 세션 (대화 기록) | ✅ | 다른 유저 대화는 보이지 않음 |
+| 절차적 메모리 (스킬) | ❌ 글로벌 | 스킬은 도구처럼 모두가 공유 |
+| 유저 프로파일 | ✅ (PK) | 각자 personality/cron 분리 |
+
+### Dreaming도 user_id별 순회
+
+`hooks/dreaming-cron.js`는 등록된 모든 user_id를 DB에서 조회 후 각각 `dreaming.dream(uid)`를 호출합니다. 즉 owner 메모리, telegram:NNN 메모리, slack:UXXX 메모리가 각각 독립적으로 정리됩니다.
+
+### 통계로 격리 확인
+
+```
+jarvis_memory_stats
+```
+
+응답 필드:
+- `per_user_declarative`: `[{user_id, count}, ...]`
+- `per_user_sessions`: `[{user_id, count}, ...]`
+- `current_user_id`: 지금 호출자의 user_id (owner / channel:id)
+
+---
+
 ## 3계층 구조
 
 ```

@@ -71,8 +71,27 @@ export class SessionStore {
     );
   }
 
-  /** FTS5로 과거 세션 검색 */
-  search(query: string, limit = 3): SearchResult[] {
+  /** FTS5로 과거 세션 검색 (user_id로 격리) */
+  search(query: string, limit = 3, userId?: string): SearchResult[] {
+    if (userId) {
+      return this.db
+        .query(
+          `SELECT
+            sm.session_id,
+            s.summary,
+            s.user_id,
+            s.started_at,
+            snippet(session_messages_fts, 0, '>>>', '<<<', '...', 64) as matched_content,
+            rank
+          FROM session_messages_fts fts
+          JOIN session_messages sm ON sm.id = fts.rowid
+          JOIN sessions s ON s.session_id = sm.session_id
+          WHERE session_messages_fts MATCH ? AND s.user_id = ?
+          ORDER BY rank
+          LIMIT ?`,
+        )
+        .all(query, userId, limit) as SearchResult[];
+    }
     return this.db
       .query(
         `SELECT
