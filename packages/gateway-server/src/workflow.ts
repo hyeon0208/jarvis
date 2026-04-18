@@ -134,6 +134,7 @@ export function startWorkflow(
     saveWorkflow(userId, session);
 
     return [
+      `등록된 프로젝트가 1개뿐이라 자동 선택되었습니다.`,
       `프로젝트: ${projects[0].config.name}`,
       `작업: ${task}`,
       "",
@@ -141,7 +142,7 @@ export function startWorkflow(
       "1. 이슈 생성 후 브랜치 생성",
       "2. 바로 브랜치 생성하여 개발 시작",
       "",
-      "번호를 입력하세요.",
+      "번호를 입력하세요. (취소: /dev cancel)",
     ].join("\n");
   }
 
@@ -155,7 +156,7 @@ export function startWorkflow(
   projects.forEach(({ key, config }, i) => {
     lines.push(`${i + 1}. ${config.name} (${key})`);
   });
-  lines.push("", "번호를 입력하세요.");
+  lines.push("", "번호를 입력하세요. (취소: /dev cancel)");
 
   return lines.join("\n");
 }
@@ -175,7 +176,7 @@ export function selectProject(
   const index = Number(input.trim()) - 1;
 
   if (isNaN(index) || index < 0 || index >= projects.length) {
-    return `1~${projects.length} 사이의 번호를 입력하세요.`;
+    return `1~${projects.length} 사이의 번호를 입력하세요. (취소: /dev cancel)`;
   }
 
   session.project_key = projects[index].key;
@@ -191,7 +192,7 @@ export function selectProject(
     "1. 이슈 생성 후 브랜치 생성",
     "2. 바로 브랜치 생성하여 개발 시작",
     "",
-    "번호를 입력하세요.",
+    "번호를 입력하세요. (취소: /dev cancel)",
   ].join("\n");
 }
 
@@ -207,7 +208,10 @@ export function selectMode(
 
   const choice = input.trim();
   if (choice !== "1" && choice !== "2") {
-    return { response: "1 또는 2를 입력하세요.", readyToWork: false };
+    return {
+      response: "1 또는 2를 입력하세요. (취소: /dev cancel)",
+      readyToWork: false,
+    };
   }
 
   session.mode = choice === "1" ? "issue" : "branch";

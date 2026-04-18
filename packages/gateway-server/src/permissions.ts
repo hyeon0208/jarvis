@@ -28,9 +28,18 @@ interface ProfileClaudeConfig {
   skip_permissions?: boolean;
 }
 
+export interface ProfilePersonality {
+  tone?: "formal" | "casual" | "friendly" | "technical";
+  language?: string;
+  verbosity?: "concise" | "normal" | "detailed";
+  emoji?: boolean;
+  nickname?: string;
+}
+
 interface ProfileConfig {
   description: string;
   claude?: ProfileClaudeConfig;
+  personality?: ProfilePersonality;
   timeout?: number;
 }
 
@@ -229,6 +238,16 @@ export function buildPersonalityPrompt(
   }
 
   return parts.filter(Boolean).join(" ");
+}
+
+/** 유저 personality와 프로필 personality 병합 (유저 설정 우선) */
+export function mergePersonality(
+  userPersonality: Record<string, unknown> | undefined,
+  profileName: string,
+): Record<string, unknown> {
+  const profile = getProfileConfig(profileName);
+  const profileDefaults = (profile?.personality ?? {}) as Record<string, unknown>;
+  return { ...profileDefaults, ...(userPersonality ?? {}) };
 }
 
 /** 프로필에 사용 가능한 도구 목록 반환 (정보 표시용) */

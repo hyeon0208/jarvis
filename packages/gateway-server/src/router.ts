@@ -165,9 +165,33 @@ function handleWorkflowInput(
   userConfig: Record<string, unknown>,
   workflow: { state: string },
 ): RouteResult {
-  // 취소 커맨드
-  if (msg.message.trim() === "/dev cancel") {
+  const trimmed = msg.message.trim().toLowerCase();
+
+  // 취소 커맨드 (오타 허용: cancel, cancle, abort, stop, quit, x)
+  const cancelCommands = [
+    "/dev cancel", "/dev cancle", "/dev abort", "/dev stop",
+    "/dev quit", "/dev x", "/cancel", "/cancle", "/abort", "/stop",
+  ];
+  if (cancelCommands.includes(trimmed)) {
     return { action: "respond", response: cancelWorkflow(msg.user_id) };
+  }
+
+  // 워크플로우 중 /dev로 시작하는 다른 커맨드
+  if (trimmed.startsWith("/dev ") || trimmed === "/dev") {
+    if (trimmed === "/dev status") {
+      return { action: "respond", response: "워크플로우 진행 중입니다. /dev cancel로 취소할 수 있습니다." };
+    }
+    if (trimmed === "/dev done" || trimmed === "/dev pr") {
+      // working 상태일 때만 의미있음, 아니면 안내
+      if (workflow.state !== "working") {
+        return { action: "respond", response: "아직 작업이 시작되지 않았습니다. 먼저 1 또는 2를 선택하세요." };
+      }
+      return { action: "respond", response: finishWorkflow(msg.user_id) };
+    }
+    return {
+      action: "respond",
+      response: "워크플로우 진행 중에는 /dev cancel만 사용 가능합니다.",
+    };
   }
 
   if (workflow.state === "awaiting_project") {
