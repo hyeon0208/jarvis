@@ -155,21 +155,18 @@ jarvis create-profile
 
 ## 개인화 설정
 
-각 팀원은 프로필 내에서 **에이전트 성격**을 커스터마이징할 수 있습니다:
+각 팀원은 **에이전트 성격(말투/언어/상세도/호칭)** 을 커스터마이징할 수 있습니다.
+짧은 예시:
 
 ```
 jarvis_profile_manage(
   action: "set_personality",
   user_id: "telegram:12345",
-  personality: {
-    "tone": "casual",         # formal, casual, friendly, technical
-    "language": "ko",         # ko, en, ja
-    "verbosity": "concise",   # concise, normal, detailed
-    "emoji": true,            # 이모지 사용 여부
-    "nickname": "자비스"       # 에이전트 호칭
-  }
+  personality: { "tone": "casual", "nickname": "자비스" }
 )
 ```
+
+전체 필드, 실제 시스템 프롬프트 변환 흐름, Owner/팀원 설정 방법, 현재 미구현 기능은 **[09. 유저별 Personality](09-personalization.md)** 문서를 참고하세요.
 
 ## 팀원 관리
 

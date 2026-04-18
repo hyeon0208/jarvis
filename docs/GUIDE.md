@@ -15,6 +15,7 @@
 | [06. 메모리 시스템](06-memory.md) | 3계층 메모리, Dreaming, 스킬 생성 |
 | [07. 커맨드 레퍼런스](07-commands.md) | 터미널/스킬/채널/MCP 전체 명령 목록 |
 | [08. Owner CLI](08-owner-cli.md) | Owner가 로컬 터미널에서 쓰는 관리 명령 (pair/list/doctor/project/channel/user) + 마법사 + 자동 진단 |
+| [09. 유저별 Personality](09-personalization.md) | 에이전트 말투/언어/상세도/호칭 설정 + 시스템 프롬프트 변환 흐름 |
 
 ## 빠른 시작
 

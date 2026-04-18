@@ -167,6 +167,7 @@ Claude Code (구독 기반)
 | [06. 메모리 시스템](docs/06-memory.md) | 3계층 메모리, Dreaming |
 | [07. 커맨드 레퍼런스](docs/07-commands.md) | 전체 명령어 |
 | [08. Owner CLI](docs/08-owner-cli.md) | 관리 명령 + 마법사 + 자동 진단 |
+| [09. 유저별 Personality](docs/09-personalization.md) | 에이전트 말투/언어/상세도/호칭 커스터마이징 |
 
 ---
 
