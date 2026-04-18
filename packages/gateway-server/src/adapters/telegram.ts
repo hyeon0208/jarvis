@@ -1,113 +1,133 @@
+import type {
+  AdapterIncoming,
+  AdapterOutgoing,
+  ChannelAdapter,
+  ChannelAdapterConfig,
+} from "./types.js";
+
 /**
- * Telegram 채널 어댑터
+ * Telegram 어댑터
  *
- * Claude Code의 기존 telegram 플러그인(mcp__plugin_telegram_telegram__reply)과
- * Jarvis 게이트웨이를 연결합니다.
+ * 동작:
+ *  - long polling으로 새 메시지 수신
+ *  - DM(1:1)만 처리 (그룹 채팅은 향후 확장)
+ *  - 응답은 sendMessage API로 전송
  *
- * 동작 방식:
- * 1. Telegram 메시지가 <channel source="telegram" ...> 태그로 Claude Code에 도착
- * 2. Claude Code가 jarvis_gateway_route를 호출하여 인증/권한 체크
- * 3. 결과에 따라 mcp__plugin_telegram_telegram__reply로 응답
- *
- * 이 파일은 메시지 파싱/포맷팅 유틸리티를 제공합니다.
+ * 설정 (channels.yml):
+ *   telegram:
+ *     enabled: true
+ *     token_env: TELEGRAM_BOT_TOKEN   # 환경 변수명
+ *     poll_interval_ms: 1000          # (선택) 폴링 간격
  */
+export class TelegramAdapter implements ChannelAdapter {
+  readonly name = "telegram" as const;
+  private token: string;
+  private pollInterval: number;
+  private offset = 0;
+  private running = false;
 
-export interface TelegramIncoming {
-  chat_id: string;
-  message_id: string;
-  user: string;
-  user_id?: string;
-  text: string;
-  timestamp: string;
-  has_image?: boolean;
-  image_path?: string;
-  attachment_file_id?: string;
-}
-
-/** <channel> 태그에서 Telegram 메시지 정보 추출 */
-export function parseTelegramChannel(channelTag: string): TelegramIncoming | null {
-  const chatIdMatch = channelTag.match(/chat_id="([^"]+)"/);
-  const messageIdMatch = channelTag.match(/message_id="([^"]+)"/);
-  const userMatch = channelTag.match(/user="([^"]+)"/);
-  const tsMatch = channelTag.match(/ts="([^"]+)"/);
-  const imagePathMatch = channelTag.match(/image_path="([^"]+)"/);
-  const attachmentMatch = channelTag.match(/attachment_file_id="([^"]+)"/);
-
-  if (!chatIdMatch || !messageIdMatch || !userMatch) return null;
-
-  // 태그 내부 텍스트 추출
-  const textMatch = channelTag.match(/>([^<]*)</);
-
-  return {
-    chat_id: chatIdMatch[1],
-    message_id: messageIdMatch[1],
-    user: userMatch[1],
-    user_id: `telegram:${chatIdMatch[1]}`,
-    text: textMatch ? textMatch[1].trim() : "",
-    timestamp: tsMatch?.[1] ?? new Date().toISOString(),
-    has_image: !!imagePathMatch,
-    image_path: imagePathMatch?.[1],
-    attachment_file_id: attachmentMatch?.[1],
-  };
-}
-
-/** Jarvis 게이트웨이 라우팅 결과를 Telegram 응답 포맷으로 변환 */
-export function formatTelegramResponse(
-  routeResult: { action: string; response?: string },
-  personality?: { nickname?: string; emoji?: boolean },
-): string {
-  const prefix = personality?.nickname ? `[${personality.nickname}] ` : "[Jarvis] ";
-
-  switch (routeResult.action) {
-    case "pairing_required":
-      return routeResult.response ?? "페어링이 필요합니다.";
-
-    case "permission_denied":
-      return `${prefix}${routeResult.response ?? "권한이 없습니다."}`;
-
-    case "respond":
-      return `${prefix}${routeResult.response ?? ""}`;
-
-    case "execute":
-      // 실행 결과는 별도로 처리됨
-      return "";
-
-    default:
-      return `${prefix}알 수 없는 응답입니다.`;
-  }
-}
-
-/** 크론잡 결과를 사용자 친화적 메시지로 포맷 */
-export function formatCronResult(result: Record<string, unknown>): string {
-  if (result.success === false) {
-    return `크론잡 오류: ${result.error ?? "알 수 없는 오류"}`;
+  constructor(config: ChannelAdapterConfig) {
+    const tokenEnv = (config.token_env as string) ?? "TELEGRAM_BOT_TOKEN";
+    this.token = process.env[tokenEnv] ?? "";
+    this.pollInterval = (config.poll_interval_ms as number) ?? 1000;
   }
 
-  if (result.job) {
-    const job = result.job as Record<string, unknown>;
-    return [
-      "크론잡이 등록되었습니다:",
-      `  ID: ${job.id}`,
-      `  스케줄: ${job.schedule}`,
-      `  작업: ${job.prompt}`,
-    ].join("\n");
+  isAvailable(): boolean {
+    return Boolean(this.token);
   }
 
-  if (result.jobs) {
-    const jobs = result.jobs as Array<Record<string, unknown>>;
-    if (jobs.length === 0) return "등록된 크론잡이 없습니다.";
+  async start(
+    onMessage: (msg: AdapterIncoming) => Promise<string | null>,
+  ): Promise<void> {
+    if (!this.isAvailable()) return;
 
-    const lines = ["등록된 크론잡:"];
-    for (const job of jobs) {
-      const status = job.enabled ? "활성" : "비활성";
-      lines.push(`  [${status}] ${job.id}: ${job.schedule} → ${job.prompt}`);
+    this.running = true;
+    void this.pollLoop(onMessage);
+  }
+
+  async send(out: AdapterOutgoing): Promise<void> {
+    if (!this.token) return;
+    await fetch(`https://api.telegram.org/bot${this.token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: out.chat_id,
+        text: out.message,
+        ...(out.reply_to ? { reply_to_message_id: Number(out.reply_to) } : {}),
+      }),
+    });
+  }
+
+  async registerCommands(
+    commands: Array<{ command: string; description: string }>,
+  ): Promise<void> {
+    if (!this.token) return;
+    await fetch(`https://api.telegram.org/bot${this.token}/setMyCommands`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ commands }),
+    });
+  }
+
+  async stop(): Promise<void> {
+    this.running = false;
+  }
+
+  private async pollLoop(
+    onMessage: (msg: AdapterIncoming) => Promise<string | null>,
+  ): Promise<void> {
+    while (this.running) {
+      try {
+        await this.pollOnce(onMessage);
+      } catch {
+        // 네트워크 일시 오류 무시
+      }
+      await new Promise((r) => setTimeout(r, this.pollInterval));
     }
-    return lines.join("\n");
   }
 
-  if (result.success === true) {
-    return "크론잡이 처리되었습니다.";
-  }
+  private async pollOnce(
+    onMessage: (msg: AdapterIncoming) => Promise<string | null>,
+  ): Promise<void> {
+    const url = `https://api.telegram.org/bot${this.token}/getUpdates?offset=${this.offset}&timeout=30`;
+    const res = await fetch(url);
+    const data = (await res.json()) as {
+      ok: boolean;
+      result: Array<{
+        update_id: number;
+        message?: {
+          message_id: number;
+          chat: { id: number };
+          from?: { id: number; first_name: string };
+          text?: string;
+        };
+      }>;
+    };
 
-  return JSON.stringify(result);
+    if (!data.ok || !data.result) return;
+
+    for (const update of data.result) {
+      this.offset = update.update_id + 1;
+      const msg = update.message;
+      if (!msg?.text || !msg.from) continue;
+
+      const incoming: AdapterIncoming = {
+        channel: "telegram",
+        user_id: `telegram:${msg.chat.id}`,
+        display_name: msg.from.first_name,
+        message: msg.text,
+        message_id: String(msg.message_id),
+        chat_id: String(msg.chat.id),
+      };
+
+      // 비동기로 처리 (다음 폴링 차단하지 않음)
+      onMessage(incoming)
+        .then(async (response) => {
+          if (response) {
+            await this.send({ chat_id: incoming.chat_id!, message: response });
+          }
+        })
+        .catch(() => { /* 응답 실패 무시 */ });
+    }
+  }
 }

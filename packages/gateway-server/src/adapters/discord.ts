@@ -1,44 +1,46 @@
+import type {
+  AdapterIncoming,
+  AdapterOutgoing,
+  ChannelAdapter,
+  ChannelAdapterConfig,
+} from "./types.js";
+
 /**
- * Discord 채널 어댑터
+ * Discord 어댑터 (DM + 서버 멘션)
  *
- * Discord 봇과 Jarvis 게이트웨이를 연결합니다.
- * discord.js를 사용하여 메시지를 수신하고 응답합니다.
- *
- * 설정:
- * - DISCORD_BOT_TOKEN 환경변수 필요
- * - Discord Developer Portal에서 봇 생성 후 토큰 발급
- * - Message Content Intent 활성화 필요
+ * 설정 (channels.yml):
+ *   discord:
+ *     enabled: true
+ *     token_env: DISCORD_BOT_TOKEN
+ *     listen_dm: true       # DM 수신
+ *     listen_mention: true  # 서버에서 @멘션 시 응답
  */
+export class DiscordAdapter implements ChannelAdapter {
+  readonly name = "discord" as const;
+  private token: string;
+  private listenDm: boolean;
+  private listenMention: boolean;
+  private client: any = null;
 
-export interface DiscordIncoming {
-  channel_id: string;
-  message_id: string;
-  user_id: string;
-  display_name: string;
-  text: string;
-  guild_id?: string;
-  is_dm: boolean;
-}
-
-/** Discord 유저 ID를 Jarvis 유저 ID로 변환 */
-export function toJarvisUserId(discordUserId: string): string {
-  return `discord:${discordUserId}`;
-}
-
-/** Discord 봇 시작 (독립 프로세스로 실행 시) */
-export async function startDiscordBot(
-  onMessage: (msg: DiscordIncoming) => Promise<string>,
-): Promise<void> {
-  const token = process.env.DISCORD_BOT_TOKEN;
-  if (!token) {
-    console.error("[Discord] DISCORD_BOT_TOKEN이 설정되지 않았습니다.");
-    return;
+  constructor(config: ChannelAdapterConfig) {
+    const tokenEnv = (config.token_env as string) ?? "DISCORD_BOT_TOKEN";
+    this.token = process.env[tokenEnv] ?? "";
+    this.listenDm = config.listen_dm !== false;
+    this.listenMention = config.listen_mention !== false;
   }
 
-  try {
+  isAvailable(): boolean {
+    return Boolean(this.token);
+  }
+
+  async start(
+    onMessage: (msg: AdapterIncoming) => Promise<string | null>,
+  ): Promise<void> {
+    if (!this.isAvailable()) return;
+
     const { Client, GatewayIntentBits } = await import("discord.js");
 
-    const client = new Client({
+    this.client = new Client({
       intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
@@ -47,32 +49,55 @@ export async function startDiscordBot(
       ],
     });
 
-    client.on("ready", () => {
-      console.error(`[Discord] 봇 로그인: ${client.user?.tag}`);
-    });
-
-    client.on("messageCreate", async (message) => {
-      // 봇 자신의 메시지 무시
+    this.client.on("messageCreate", async (message: any) => {
       if (message.author.bot) return;
 
-      const incoming: DiscordIncoming = {
-        channel_id: message.channelId,
-        message_id: message.id,
-        user_id: message.author.id,
+      const isDm = !message.guildId;
+      const botId = this.client.user?.id;
+      const isMention = botId && message.mentions.has(botId);
+
+      // DM 또는 멘션만 처리
+      if (isDm && !this.listenDm) return;
+      if (!isDm && !isMention) return;
+      if (!isDm && !this.listenMention) return;
+
+      // 멘션인 경우 봇 멘션 부분 제거
+      let text = message.content;
+      if (isMention && botId) {
+        text = text.replace(new RegExp(`<@!?${botId}>`, "g"), "").trim();
+      }
+
+      const incoming: AdapterIncoming = {
+        channel: "discord",
+        user_id: `discord:${message.author.id}`,
         display_name: message.author.displayName ?? message.author.username,
-        text: message.content,
-        guild_id: message.guildId ?? undefined,
-        is_dm: !message.guildId,
+        message: text,
+        message_id: message.id,
+        chat_id: message.channelId,
+        meta: { is_dm: isDm, guild_id: message.guildId },
       };
 
-      const response = await onMessage(incoming);
-      if (response) {
-        await message.reply(response);
-      }
+      onMessage(incoming)
+        .then(async (response) => {
+          if (response) {
+            await message.reply(response).catch(() => { /* ignore */ });
+          }
+        })
+        .catch(() => { /* ignore */ });
     });
 
-    await client.login(token);
-  } catch (err) {
-    console.error("[Discord] 봇 시작 실패:", err);
+    await this.client.login(this.token);
+  }
+
+  async send(out: AdapterOutgoing): Promise<void> {
+    if (!this.client) return;
+    const channel = await this.client.channels.fetch(out.chat_id);
+    if (channel?.isTextBased()) {
+      await channel.send(out.message);
+    }
+  }
+
+  async stop(): Promise<void> {
+    if (this.client) await this.client.destroy();
   }
 }

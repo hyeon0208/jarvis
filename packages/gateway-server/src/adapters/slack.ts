@@ -1,76 +1,127 @@
+import type {
+  AdapterIncoming,
+  AdapterOutgoing,
+  ChannelAdapter,
+  ChannelAdapterConfig,
+} from "./types.js";
+
 /**
- * Slack 채널 어댑터
+ * Slack 어댑터 (DM + 채널 멘션)
  *
- * Slack Bolt와 Jarvis 게이트웨이를 연결합니다.
+ * 설정 (channels.yml):
+ *   slack:
+ *     enabled: true
+ *     bot_token_env: SLACK_BOT_TOKEN     # xoxb-...
+ *     app_token_env: SLACK_APP_TOKEN     # xapp-... (Socket Mode)
+ *     listen_dm: true                    # DM 수신
+ *     listen_mention: true               # @bot 멘션 수신
+ *     thread_replies: true               # 채널 멘션은 스레드로 응답
  *
- * 설정:
- * - SLACK_BOT_TOKEN (xoxb-...) 환경변수 필요
- * - SLACK_APP_TOKEN (xapp-...) 환경변수 필요 (Socket Mode)
- * - Slack API에서 앱 생성 후 토큰 발급
- * - Socket Mode 활성화 + Event Subscriptions (message.im, message.channels)
+ * Slack App 설정 필요:
+ *   - Socket Mode 활성화
+ *   - Event Subscriptions: message.im, app_mention
+ *   - OAuth Scopes: chat:write, im:history, app_mentions:read
  */
+export class SlackAdapter implements ChannelAdapter {
+  readonly name = "slack" as const;
+  private botToken: string;
+  private appToken: string;
+  private listenDm: boolean;
+  private listenMention: boolean;
+  private threadReplies: boolean;
+  private app: any = null;
 
-export interface SlackIncoming {
-  channel_id: string;
-  message_id: string;
-  user_id: string;
-  display_name: string;
-  text: string;
-  team_id?: string;
-  is_dm: boolean;
-}
-
-/** Slack 유저 ID를 Jarvis 유저 ID로 변환 */
-export function toJarvisUserId(slackUserId: string): string {
-  return `slack:${slackUserId}`;
-}
-
-/** Slack 봇 시작 (독립 프로세스로 실행 시) */
-export async function startSlackBot(
-  onMessage: (msg: SlackIncoming) => Promise<string>,
-): Promise<void> {
-  const botToken = process.env.SLACK_BOT_TOKEN;
-  const appToken = process.env.SLACK_APP_TOKEN;
-
-  if (!botToken || !appToken) {
-    console.error(
-      "[Slack] SLACK_BOT_TOKEN과 SLACK_APP_TOKEN이 설정되지 않았습니다.",
-    );
-    return;
+  constructor(config: ChannelAdapterConfig) {
+    const botEnv = (config.bot_token_env as string) ?? "SLACK_BOT_TOKEN";
+    const appEnv = (config.app_token_env as string) ?? "SLACK_APP_TOKEN";
+    this.botToken = process.env[botEnv] ?? "";
+    this.appToken = process.env[appEnv] ?? "";
+    this.listenDm = config.listen_dm !== false;
+    this.listenMention = config.listen_mention !== false;
+    this.threadReplies = config.thread_replies !== false;
   }
 
-  try {
+  isAvailable(): boolean {
+    return Boolean(this.botToken && this.appToken);
+  }
+
+  async start(
+    onMessage: (msg: AdapterIncoming) => Promise<string | null>,
+  ): Promise<void> {
+    if (!this.isAvailable()) return;
+
     const { App } = await import("@slack/bolt");
 
-    const app = new App({
-      token: botToken,
-      appToken,
+    this.app = new App({
+      token: this.botToken,
+      appToken: this.appToken,
       socketMode: true,
     });
 
-    app.message(async ({ message, say }) => {
-      // 봇 메시지, 서브타입 메시지 무시
-      if (!("text" in message) || !("user" in message)) return;
-      if ("subtype" in message) return;
+    // DM 메시지
+    if (this.listenDm) {
+      this.app.message(async ({ message, say }: any) => {
+        if (!("text" in message) || !("user" in message)) return;
+        if ("subtype" in message) return;
+        if (message.channel_type !== "im") return; // DM만
 
-      const incoming: SlackIncoming = {
-        channel_id: message.channel,
-        message_id: message.ts,
-        user_id: message.user as string,
-        display_name: message.user as string, // 별도 API 호출로 이름 조회 가능
-        text: message.text ?? "",
-        is_dm: message.channel_type === "im",
-      };
+        const incoming: AdapterIncoming = {
+          channel: "slack",
+          user_id: `slack:${message.user}`,
+          display_name: message.user,
+          message: message.text ?? "",
+          message_id: message.ts,
+          chat_id: message.channel,
+          meta: { is_dm: true },
+        };
 
-      const response = await onMessage(incoming);
-      if (response) {
-        await say(response);
-      }
-    });
+        const response = await onMessage(incoming);
+        if (response) {
+          await say(response).catch(() => { /* ignore */ });
+        }
+      });
+    }
 
-    await app.start();
-    console.error("[Slack] 봇 시작됨 (Socket Mode)");
-  } catch (err) {
-    console.error("[Slack] 봇 시작 실패:", err);
+    // 채널에서 @멘션
+    if (this.listenMention) {
+      this.app.event("app_mention", async ({ event, say }: any) => {
+        // 멘션 텍스트에서 봇 멘션 부분 제거
+        const text = (event.text ?? "").replace(/<@[A-Z0-9]+>\s*/g, "").trim();
+
+        const incoming: AdapterIncoming = {
+          channel: "slack",
+          user_id: `slack:${event.user}`,
+          display_name: event.user,
+          message: text,
+          message_id: event.ts,
+          chat_id: event.channel,
+          meta: { is_dm: false, thread_ts: event.thread_ts ?? event.ts },
+        };
+
+        const response = await onMessage(incoming);
+        if (response) {
+          // 스레드로 답변
+          await say({
+            text: response,
+            thread_ts: this.threadReplies ? (event.thread_ts ?? event.ts) : undefined,
+          }).catch(() => { /* ignore */ });
+        }
+      });
+    }
+
+    await this.app.start();
+  }
+
+  async send(out: AdapterOutgoing): Promise<void> {
+    if (!this.app) return;
+    await this.app.client.chat.postMessage({
+      channel: out.chat_id,
+      text: out.message,
+      ...(out.reply_to ? { thread_ts: out.reply_to } : {}),
+    }).catch(() => { /* ignore */ });
+  }
+
+  async stop(): Promise<void> {
+    if (this.app) await this.app.stop();
   }
 }

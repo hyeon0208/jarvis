@@ -221,198 +221,61 @@ function truncate(text: string): string {
   return text;
 }
 
-// --- Telegram 리스너 ---
-async function startTelegramListener(): Promise<void> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) {
-    log("WARN", "TELEGRAM_BOT_TOKEN 미설정 — Telegram 비활성");
+// --- 채널 어댑터 시스템 ---
+
+import { createEnabledAdapters } from "./adapters/registry.js";
+import type { AdapterIncoming, ChannelAdapter } from "./adapters/types.js";
+
+const TELEGRAM_COMMANDS = [
+  { command: "dev", description: "개발 워크플로우 시작 (/dev 작업내용)" },
+  { command: "help", description: "사용 가능한 명령 목록" },
+  { command: "status", description: "Jarvis 상태 확인" },
+  { command: "profile", description: "내 프로필 조회" },
+  { command: "personality", description: "개인화 설정 조회" },
+  { command: "cron", description: "크론잡 관리 (add/list/delete)" },
+];
+
+let activeAdapters: ChannelAdapter[] = [];
+
+async function startAdapters(): Promise<void> {
+  activeAdapters = createEnabledAdapters();
+
+  if (activeAdapters.length === 0) {
+    log("WARN", "활성화된 채널이 없습니다. config/channels.yml을 확인하세요.");
     return;
   }
 
-  log("INFO", "Telegram 리스너 시작...");
-
-  // 봇 커맨드 메뉴 등록
-  try {
-    await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        commands: [
-          { command: "dev", description: "개발 워크플로우 시작 (/dev 작업내용)" },
-          { command: "help", description: "사용 가능한 명령 목록" },
-          { command: "status", description: "Jarvis 상태 확인" },
-          { command: "profile", description: "내 프로필 조회" },
-          { command: "personality", description: "개인화 설정 조회" },
-          { command: "cron", description: "크론잡 관리 (add/list/delete)" },
-        ],
-      }),
-    });
-    log("INFO", "Telegram 봇 커맨드 메뉴 등록됨");
-  } catch {
-    log("WARN", "Telegram 커맨드 메뉴 등록 실패");
-  }
-
-
-  // 간단한 long polling 방식 (telegraf 의존성 없이)
-  let offset = 0;
-
-  const poll = async () => {
+  for (const adapter of activeAdapters) {
     try {
-      const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${offset}&timeout=30`;
-      const res = await fetch(url);
-      const data = (await res.json()) as {
-        ok: boolean;
-        result: Array<{
-          update_id: number;
-          message?: {
-            message_id: number;
-            chat: { id: number };
-            from?: { id: number; first_name: string; username?: string };
-            text?: string;
-          };
-        }>;
-      };
-
-      if (!data.ok || !data.result) return;
-
-      for (const update of data.result) {
-        offset = update.update_id + 1;
-        const msg = update.message;
-        if (!msg?.text || !msg.from) continue;
-
-        const incoming: IncomingMessage = {
-          channel: "telegram",
-          user_id: `telegram:${msg.chat.id}`,
-          display_name: msg.from.first_name,
-          message: msg.text,
-          message_id: String(msg.message_id),
-          chat_id: String(msg.chat.id),
+      await adapter.start(async (incoming: AdapterIncoming) => {
+        const inc: IncomingMessage = {
+          channel: incoming.channel as IncomingMessage["channel"],
+          user_id: incoming.user_id,
+          display_name: incoming.display_name,
+          message: incoming.message,
+          message_id: incoming.message_id,
+          chat_id: incoming.chat_id,
         };
+        return await handleMessage(inc);
+      });
 
-        // 비동기로 처리 (다음 폴링 차단하지 않음)
-        handleMessage(incoming)
-          .then(async (response) => {
-            if (!response) return;
-            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                chat_id: msg.chat.id,
-                text: response,
-              }),
-            });
-          })
-          .catch((err) => {
-            log("ERROR", `Telegram 응답 실패: ${err.message}`);
-          });
+      // 봇 커맨드 메뉴 등록 (지원하는 채널만)
+      if (adapter.registerCommands) {
+        await adapter.registerCommands(TELEGRAM_COMMANDS).catch(() => { /* ignore */ });
       }
+
+      log("INFO", `[${adapter.name}] 리스너 활성화됨`);
     } catch (err) {
-      log("ERROR", `Telegram 폴링 오류: ${(err as Error).message}`);
+      log("ERROR", `[${adapter.name}] 시작 실패: ${(err as Error).message}`);
     }
-  };
-
-  // 폴링 루프
-  const loop = async () => {
-    while (true) {
-      await poll();
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-  };
-
-  loop().catch((err) => log("ERROR", `Telegram 루프 종료: ${err.message}`));
-  log("INFO", "Telegram 리스너 활성화됨");
-}
-
-// --- Discord 리스너 ---
-async function startDiscordListener(): Promise<void> {
-  const token = process.env.DISCORD_BOT_TOKEN;
-  if (!token) {
-    log("WARN", "DISCORD_BOT_TOKEN 미설정 — Discord 비활성");
-    return;
-  }
-
-  try {
-    const { Client, GatewayIntentBits } = await import("discord.js");
-
-    const client = new Client({
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.DirectMessages,
-        GatewayIntentBits.MessageContent,
-      ],
-    });
-
-    client.on("ready", () => {
-      log("INFO", `Discord 봇 로그인: ${client.user?.tag}`);
-    });
-
-    client.on("messageCreate", async (message) => {
-      if (message.author.bot) return;
-
-      const incoming: IncomingMessage = {
-        channel: "discord",
-        user_id: `discord:${message.author.id}`,
-        display_name: message.author.displayName ?? message.author.username,
-        message: message.content,
-        message_id: message.id,
-        chat_id: message.channelId,
-      };
-
-      const response = await handleMessage(incoming);
-      if (response) {
-        await message.reply(response).catch((err) => {
-          log("ERROR", `Discord 응답 실패: ${err.message}`);
-        });
-      }
-    });
-
-    await client.login(token);
-    log("INFO", "Discord 리스너 활성화됨");
-  } catch (err) {
-    log("ERROR", `Discord 시작 실패: ${(err as Error).message}`);
   }
 }
 
-// --- Slack 리스너 ---
-async function startSlackListener(): Promise<void> {
-  const botToken = process.env.SLACK_BOT_TOKEN;
-  const appToken = process.env.SLACK_APP_TOKEN;
-  if (!botToken || !appToken) {
-    log("WARN", "SLACK_BOT_TOKEN/SLACK_APP_TOKEN 미설정 — Slack 비활성");
-    return;
-  }
-
-  try {
-    const { App } = await import("@slack/bolt");
-
-    const app = new App({ token: botToken, appToken, socketMode: true });
-
-    app.message(async ({ message, say }) => {
-      if (!("text" in message) || !("user" in message)) return;
-      if ("subtype" in message) return;
-
-      const incoming: IncomingMessage = {
-        channel: "slack",
-        user_id: `slack:${message.user}`,
-        display_name: message.user as string,
-        message: message.text ?? "",
-        message_id: message.ts,
-        chat_id: message.channel,
-      };
-
-      const response = await handleMessage(incoming);
-      if (response) {
-        await say(response).catch((err: Error) => {
-          log("ERROR", `Slack 응답 실패: ${err.message}`);
-        });
-      }
-    });
-
-    await app.start();
-    log("INFO", "Slack 리스너 활성화됨 (Socket Mode)");
-  } catch (err) {
-    log("ERROR", `Slack 시작 실패: ${(err as Error).message}`);
+async function stopAdapters(): Promise<void> {
+  for (const adapter of activeAdapters) {
+    if (adapter.stop) {
+      await adapter.stop().catch(() => { /* ignore */ });
+    }
   }
 }
 
@@ -427,18 +290,15 @@ async function main(): Promise<void> {
   if (!existsSync(JARVIS_DIR)) mkdirSync(JARVIS_DIR, { recursive: true });
   writeFileSync(PID_FILE, String(process.pid));
 
-  // 채널 리스너 시작 (설정된 것만 활성화)
-  await Promise.all([
-    startTelegramListener(),
-    startDiscordListener(),
-    startSlackListener(),
-  ]);
+  // 어댑터 시스템 시작
+  await startAdapters();
 
   log("INFO", "Jarvis Daemon 대기 중...");
 
   // 종료 시그널 핸들링
-  const cleanup = () => {
+  const cleanup = async () => {
     log("INFO", "=== Jarvis Daemon 종료 ===");
+    await stopAdapters();
     try {
       const { unlinkSync } = require("node:fs");
       unlinkSync(PID_FILE);

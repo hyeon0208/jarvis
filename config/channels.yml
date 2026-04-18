@@ -1,0 +1,48 @@
+# Jarvis 채널 설정
+# 활성화할 채널을 enabled: true로 설정하고 토큰을 .env에 등록하세요.
+#
+# 새 채널을 추가하려면:
+# 1. packages/gateway-server/src/adapters/{이름}.ts 파일 작성
+#    (ChannelAdapter 인터페이스 구현)
+# 2. registry.ts의 BUILTIN_ADAPTERS에 등록
+# 3. 이 파일에 enabled: true로 설정
+
+channels:
+  # ──────────────────────────────────────
+  # Telegram (DM 1:1)
+  # ──────────────────────────────────────
+  telegram:
+    enabled: true
+    token_env: TELEGRAM_BOT_TOKEN
+    poll_interval_ms: 1000
+
+  # ──────────────────────────────────────
+  # Discord (DM + 서버 멘션)
+  # ──────────────────────────────────────
+  discord:
+    enabled: false
+    token_env: DISCORD_BOT_TOKEN
+    listen_dm: true       # DM 수신
+    listen_mention: true  # 서버에서 @봇 멘션 수신
+
+  # ──────────────────────────────────────
+  # Slack (DM + 채널 멘션, 스레드 응답)
+  # ──────────────────────────────────────
+  slack:
+    enabled: false
+    bot_token_env: SLACK_BOT_TOKEN     # xoxb-...
+    app_token_env: SLACK_APP_TOKEN     # xapp-... (Socket Mode)
+    listen_dm: true
+    listen_mention: true
+    thread_replies: true               # 채널 멘션은 스레드로 응답
+
+  # ──────────────────────────────────────
+  # Webhook (범용 HTTP 수신)
+  # ──────────────────────────────────────
+  # GitHub, Jira, 사내 봇 등 외부 시스템이 HTTP POST로 요청 가능
+  # POST http://localhost:3737/webhook
+  # Authorization: Bearer {token}
+  webhook:
+    enabled: false
+    port: 3737
+    auth_token_env: WEBHOOK_AUTH_TOKEN
