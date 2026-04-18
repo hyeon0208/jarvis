@@ -325,7 +325,7 @@ jarvis user ls|show|profile|rename|rm     # 유저 관리
 > - `jarvis start` — 팀원이 Telegram/Discord/Slack으로 접근할 수 있도록 백그라운드 리스닝.
 > - 혼자만 쓴다면 **`jarvis chat`만으로 충분**합니다.
 
-상세 가이드: [docs/08-admin-cli.md](docs/08-admin-cli.md)
+상세 가이드: [docs/08-owner-cli.md](docs/08-owner-cli.md)
 
 ### Claude Code 스킬 커맨드 (대화 중 사용)
 

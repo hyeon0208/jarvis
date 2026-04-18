@@ -62,7 +62,7 @@ Owner가 로컬 터미널에서 사용하는 명령입니다.
 | `jarvis doctor` | 전체 진단 (11개 체크) |
 | `jarvis doctor --quick` | 네트워크 제외 빠른 진단 |
 
-상세 사용법: [관리 CLI 가이드](08-admin-cli.md)
+상세 사용법: [Owner CLI 가이드](08-owner-cli.md)
 
 ### 사용 예시
 

@@ -1,7 +1,79 @@
-# 관리 CLI
+# Owner CLI
 
-Owner가 터미널에서 Jarvis를 운영할 때 쓰는 명령어들입니다.
+**Owner(= Jarvis를 호스팅하는 본인)** 가 로컬 터미널에서 Jarvis를 운영할 때 쓰는 명령어들입니다.
 프로필/프로젝트/채널/유저 모두 **파일 편집 없이 명령 한 줄로 관리**할 수 있습니다.
+
+> **주의 — `admin` 프로필과 다릅니다**
+>
+> | 개념 | 의미 | 접근 경로 |
+> |------|------|----------|
+> | **Owner** | Jarvis를 호스팅하는 본인 | 로컬 터미널 (jarvis 쉘 명령) |
+> | **`admin` 프로필** | 외부 채널 유저에게 부여하는 최고 권한 등급 | Telegram/Discord/Slack DM |
+
+---
+
+## 역할 비교
+
+### Owner (호스트, 로컬 터미널)
+
+Jarvis 자체의 **운영자**입니다. 파일 시스템과 데몬 프로세스를 직접 제어합니다.
+
+| 영역 | 할 수 있는 일 |
+|------|-------------|
+| **시스템** | 데몬 기동/종료/재시작, launchd 자동 시작 등록, 로그 조회 |
+| **설정 파일** | profiles.yml, channels.yml, projects.jsonc, .env 직접 수정 가능 |
+| **MCP 등록** | `~/.claude/settings.json` 패치 (jarvis install-mcp) |
+| **프로필** | 신규 생성, 기존 수정, 권한 변경 (jarvis create/edit-profile) |
+| **프로젝트** | 추가/제거, worktree 관리 (jarvis project / add-project) |
+| **채널** | 활성화/비활성화, 봇 토큰 등록 (jarvis channel / add-channel) |
+| **유저** | 페어링 승인/거부, 유저 프로필 변경/삭제 (jarvis pair / user) |
+| **진단** | 전체 헬스 체크 (jarvis doctor) |
+| **대화** | jarvis chat / ask (본인 전용 대화) |
+
+Owner만 할 수 있는 이유: **로컬 파일 시스템에 접근 가능한 사람**이기 때문입니다. 외부에서는 이 명령어를 호출할 방법이 없습니다.
+
+### admin 프로필 (외부 유저, 최고 권한)
+
+Telegram/Discord/Slack 등 외부 채널로 접속한 유저 중 Owner가 **최고 권한**을 부여한 사람입니다.
+
+| 영역 | 할 수 있는 일 |
+|------|-------------|
+| **AI 대화** | 모든 채널 커맨드 (`/help`, `/status`, `/profile`, `/personality`) |
+| **크론잡** | 본인의 반복 작업 등록/조회/삭제 (`/cron add/list/delete`) |
+| **개발 워크플로우** | `/dev` 커맨드로 프로젝트 선택 → 브랜치 생성 → 코드 작업 → PR |
+| **Claude 도구** | `--dangerously-skip-permissions` — 제한 없이 모든 도구 호출 |
+| **파일 접근** | Owner 로컬의 모든 디렉토리 (프로젝트 외도 가능) |
+| **명령 실행** | 모든 Bash 명령 (단, 데몬이 spawn한 프로세스 범위 내) |
+
+admin 프로필이 할 수 **없는** 것:
+- ❌ 다른 유저의 페어링 승인/거부 (Owner CLI 영역)
+- ❌ 프로필 정의 수정 (profiles.yml 직접 편집 영역)
+- ❌ 채널 추가/토큰 변경 (channels.yml + .env 직접 편집)
+- ❌ 데몬 재시작 / MCP 등록
+- ❌ Jarvis 자체 설정 변경
+
+### 다른 프로필 (developer / reviewer / observer)
+
+외부 채널 유저이지만 권한이 제한됩니다.
+
+| 프로필 | AI 대화 | 크론잡 | /dev | 코드 수정 | Git | 명령 실행 |
+|--------|---------|--------|------|----------|-----|----------|
+| admin | ✓ | ✓ | ✓ | ✓ 전체 | ✓ 전체 | ✓ 전체 |
+| developer | ✓ | ✓ | ✓ | ✓ 프로젝트만 | ✓ add/commit/push | ✓ test/build |
+| reviewer | ✓ | ✓ | ✗ | ✗ | ✓ 읽기만 | ✗ |
+| observer | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
+
+프로필별 상세 권한: [04-team-members.md](04-team-members.md) 참고.
+
+### 한 줄 요약
+
+```
+Owner       = 로컬 터미널의 본인.          Jarvis 자체를 관리.
+admin       = 외부 채널의 최고 권한 유저.  Claude를 무제한 활용.
+developer   = 외부 채널의 개발자.          프로젝트 내 코드 작업.
+reviewer    = 외부 채널의 리뷰어.          읽기만.
+observer    = 외부 채널의 기본 유저.       질문/검색만.
+```
 
 ---
 
