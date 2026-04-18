@@ -99,10 +99,12 @@ $ jarvis logs
 |--------|------|------|
 | `/jarvis` | 의도 분석 결과 표시 | `/jarvis` |
 | `/jarvis {요청}` | 의도 분석 후 작업 | `/jarvis JPA N+1 해결해줘` |
-| `/jarvis stats` | 메모리 통계 | |
-| `/jarvis dream` | Dreaming 실행 | |
+| `/jarvis stats` | 메모리 통계 (DB 크기, 임계치 포함) | |
+| `/jarvis dream` | Dreaming 실행 (memory.yml의 archive_days 자동 적용) | |
 | `/jarvis skills` | 스킬 목록 조회 | |
 | `/jarvis sync` | 스킬+세션 DB 동기화 | |
+
+> **자동 IntentGate**: `/jarvis` 명시 호출 없이도 모든 입력에 대해 `hooks/intent-gate.js`가 UserPromptSubmit 훅으로 자동 발동합니다. 짧은 인사는 통과, 실제 질문은 메모리 검색 결과를 컨텍스트로 자동 주입. 상세는 [06-memory.md](06-memory.md#intentgate-자동화-userpromptsubmit-훅)
 
 ### /skill-generator (스킬 생성)
 

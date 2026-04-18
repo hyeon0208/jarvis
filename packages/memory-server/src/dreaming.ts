@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { DeclarativeMemoryStore } from "./declarative.js";
+import { loadMemoryPolicy } from "./memory-config.js";
 
 export interface DreamingReport {
   duplicates_merged: number;
@@ -15,8 +16,13 @@ export class DreamingEngine {
     this.declarative = new DeclarativeMemoryStore(db);
   }
 
-  /** 전체 Dreaming 사이클 실행 */
-  dream(userId = "owner", staleDays = 90): DreamingReport {
+  /** 전체 Dreaming 사이클 실행 — staleDays 미지정 시 memory.yml의 archive_days 사용 */
+  dream(userId = "owner", staleDays?: number): DreamingReport {
+    const days = staleDays ?? loadMemoryPolicy().archive_days;
+    return this.dreamWithDays(userId, days);
+  }
+
+  private dreamWithDays(userId: string, staleDays: number): DreamingReport {
     const actions: string[] = [];
     let totalAffected = 0;
 

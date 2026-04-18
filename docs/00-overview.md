@@ -179,11 +179,21 @@ Jarvis: "1. 이슈 생성 후 브랜치  2. 바로 브랜치"
 ### 2.5 메모리 루프 (자동)
 
 ```
+사용자 입력
+    │
+    ▼ UserPromptSubmit 훅
+hooks/intent-gate.js
+    ├─ 카테고리/복잡도 분류
+    └─ standard/deep이면 SQLite FTS5에서 관련 메모리/세션/스킬 검색
+       → additionalContext로 모델에 자동 주입
+
 Claude Code 도구 호출 (Edit/Write/Bash 등)
     │
     ▼ PostToolUse 훅
 hooks/auto-memory.js
-    └─ ~/.jarvis/sessions/{id}.json 기록
+    ├─ ~/.jarvis/sessions/{id}.json 기록
+    └─ DB 크기가 soft_limit_mb 초과 시 백그라운드 Dreaming 트리거
+       (cooldown 적용, dreaming-cron.js spawn)
 
 복잡한 작업 완료 시
     │
@@ -207,6 +217,7 @@ hooks/skill-nudge.js
 | `~/jarvis/config/profiles.yml` | 프로필별 권한 (도구/디렉토리/모델/effort) | 프로필 권한 튜닝 |
 | `~/jarvis/config/projects.jsonc` | `/dev`에서 쓸 git 저장소 목록 | 새 프로젝트 추가 |
 | `~/jarvis/config/channels.yml` | Telegram/Discord/Slack 활성화 | 채널 온/오프 |
+| `~/jarvis/config/memory.yml` | 메모리 정책 (soft/hard 리밋, archive_days) | 자동 압축 정책 튜닝 |
 | `~/jarvis/.env` | 봇 토큰 (gitignore) | 봇 최초 설정 |
 | `~/.claude/settings.json` | MCP 서버, 훅, 권한 등록 | 자동 패치 (`jarvis install-mcp`) |
 | `~/.jarvis/users/*.json` | 각 유저의 프로필/개인화/크론잡 | 자동 관리 |

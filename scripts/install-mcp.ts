@@ -74,6 +74,19 @@ const JARVIS_HOOKS = [
   },
 ];
 
+// UserPromptSubmit 훅 — IntentGate 자동 발동
+const JARVIS_USER_PROMPT_HOOKS = [
+  {
+    hooks: [
+      {
+        type: "command",
+        command: `bun run "${JARVIS_HOME}/hooks/intent-gate.js"`,
+        timeout: 3,
+      },
+    ],
+  },
+];
+
 function simulatePatch(): { added: string[]; preserved: string[] } {
   const current = loadClaudeSettings();
   const added: string[] = [];
@@ -95,6 +108,15 @@ function simulatePatch(): { added: string[]; preserved: string[] } {
     const matched = existingHooks.some((h) => JSON.stringify(h) === JSON.stringify(hook));
     if (matched) preserved.push(`hooks.PostToolUse[jarvis]`);
     else added.push(`hooks.PostToolUse[jarvis]`);
+  }
+
+  const existingUserPrompt = current.hooks?.UserPromptSubmit ?? [];
+  for (const hook of JARVIS_USER_PROMPT_HOOKS) {
+    const matched = existingUserPrompt.some(
+      (h) => JSON.stringify(h) === JSON.stringify(hook),
+    );
+    if (matched) preserved.push(`hooks.UserPromptSubmit[intent-gate]`);
+    else added.push(`hooks.UserPromptSubmit[intent-gate]`);
   }
 
   return { added, preserved };
@@ -129,6 +151,7 @@ function main(): void {
     mcpServers: JARVIS_MCP_SERVERS,
     permissionsAllow: JARVIS_PERMISSIONS,
     postToolUseHooks: JARVIS_HOOKS,
+    userPromptSubmitHooks: JARVIS_USER_PROMPT_HOOKS,
   });
 
   console.log(`\n${GREEN}패치 완료 (${result.changed.length}개 변경)${RESET}`);

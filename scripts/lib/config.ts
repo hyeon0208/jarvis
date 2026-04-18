@@ -28,9 +28,11 @@ export const PATHS = {
   profilesYml: join(HOME, "jarvis", "config", "profiles.yml"),
   channelsYml: join(HOME, "jarvis", "config", "channels.yml"),
   projectsJsonc: join(HOME, "jarvis", "config", "projects.jsonc"),
+  memoryYml: join(HOME, "jarvis", "config", "memory.yml"),
   envFile: join(HOME, "jarvis", ".env"),
   claudeSettings: join(HOME, ".claude", "settings.json"),
   usersDir: join(HOME, ".jarvis", "users"),
+  memoryDb: join(HOME, ".jarvis", "data", "memory.db"),
   pendingPairings: join(HOME, ".jarvis", "data", "pending-pairings.json"),
   daemonPid: join(HOME, ".jarvis", "daemon.pid"),
   daemonLog: join(HOME, ".jarvis", "daemon.log"),
@@ -114,6 +116,39 @@ export function saveChannelsYml(data: ChannelsDocument): void {
     doc = new Document(data);
   }
   writeFileSync(PATHS.channelsYml, String(doc));
+}
+
+// ============================================================
+// memory.yml — 메모리 정책
+// ============================================================
+
+export interface MemoryPolicy {
+  soft_limit_mb: number;
+  hard_limit_mb: number;
+  archive_days: number;
+  auto_dream_cooldown_seconds: number;
+}
+
+export interface MemoryDocument {
+  memory: MemoryPolicy;
+}
+
+const MEMORY_DEFAULTS: MemoryPolicy = {
+  soft_limit_mb: 1024,
+  hard_limit_mb: 2048,
+  archive_days: 30,
+  auto_dream_cooldown_seconds: 300,
+};
+
+export function loadMemoryYml(): MemoryPolicy {
+  if (!existsSync(PATHS.memoryYml)) return { ...MEMORY_DEFAULTS };
+  try {
+    const content = readFileSync(PATHS.memoryYml, "utf-8");
+    const parsed = parseYaml(content) as Partial<MemoryDocument> | null;
+    return { ...MEMORY_DEFAULTS, ...(parsed?.memory ?? {}) };
+  } catch {
+    return { ...MEMORY_DEFAULTS };
+  }
 }
 
 // ============================================================
@@ -249,6 +284,7 @@ export function patchClaudeSettings(patch: {
   mcpServers?: Record<string, unknown>;
   permissionsAllow?: string[];
   postToolUseHooks?: Array<Record<string, unknown>>;
+  userPromptSubmitHooks?: Array<Record<string, unknown>>;
 }): { backup: string | null; changed: string[] } {
   const changed: string[] = [];
   const bak = backup(PATHS.claudeSettings);
@@ -286,6 +322,20 @@ export function patchClaudeSettings(patch: {
       if (!exists) {
         settings.hooks.PostToolUse.push(hook);
         changed.push(`hooks.PostToolUse[+1]`);
+      }
+    }
+  }
+
+  if (patch.userPromptSubmitHooks) {
+    settings.hooks ??= {};
+    settings.hooks.UserPromptSubmit ??= [];
+    for (const hook of patch.userPromptSubmitHooks) {
+      const exists = settings.hooks.UserPromptSubmit.some(
+        (h) => JSON.stringify(h) === JSON.stringify(hook),
+      );
+      if (!exists) {
+        settings.hooks.UserPromptSubmit.push(hook);
+        changed.push(`hooks.UserPromptSubmit[+1]`);
       }
     }
   }

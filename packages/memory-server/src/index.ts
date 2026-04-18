@@ -1,12 +1,16 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { join } from "node:path";
 import { openDatabase } from "./db.js";
 import { DeclarativeMemoryStore } from "./declarative.js";
 import { ProceduralMemoryStore } from "./procedural.js";
 import { SessionStore } from "./session-search.js";
 import { DreamingEngine } from "./dreaming.js";
 import { UserProfileStore } from "./user-profile.js";
+import { loadMemoryPolicy, getDbSizeMb } from "./memory-config.js";
+
+const DB_PATH = join(process.env.HOME ?? "~", ".jarvis", "data", "memory.db");
 
 // --- DB 초기화 ---
 const db = openDatabase();
@@ -231,10 +235,14 @@ server.tool(
   "메모리 Dreaming을 실행합니다 (중복 병합, 오래된 사실 아카이브)",
   {
     user_id: z.string().optional().describe("유저 ID (기본: owner)"),
-    stale_days: z.number().optional().describe("오래된 기준 일수 (기본: 90)"),
+    stale_days: z
+      .number()
+      .optional()
+      .describe("오래된 기준 일수 (기본: memory.yml의 archive_days, 보통 30)"),
   },
   async ({ user_id, stale_days }) => {
-    const report = dreaming.dream(user_id ?? "owner", stale_days ?? 90);
+    // stale_days 미지정 시 dreaming.dream이 memory.yml에서 자동으로 읽음
+    const report = dreaming.dream(user_id ?? "owner", stale_days);
     return {
       content: [
         {
@@ -479,9 +487,16 @@ server.tool(
 
 server.tool(
   "jarvis_memory_stats",
-  "메모리 시스템 전체 통계를 조회합니다",
+  "메모리 시스템 전체 통계를 조회합니다 (DB 크기, 임계치 포함)",
   {},
   async () => {
+    const policy = loadMemoryPolicy();
+    const dbSizeMb = getDbSizeMb(DB_PATH);
+
+    let usageStatus: "normal" | "soft_exceeded" | "hard_exceeded" = "normal";
+    if (dbSizeMb >= policy.hard_limit_mb) usageStatus = "hard_exceeded";
+    else if (dbSizeMb >= policy.soft_limit_mb) usageStatus = "soft_exceeded";
+
     const stats = {
       declarative_memories: declarative.count(),
       procedural_memories: procedural.count(),
@@ -489,6 +504,13 @@ server.tool(
       session_messages: sessions.messageCount(),
       paired_users: profiles.pairedCount(),
       total_users: profiles.listAll().length,
+      db_size_mb: dbSizeMb,
+      memory_policy: {
+        soft_limit_mb: policy.soft_limit_mb,
+        hard_limit_mb: policy.hard_limit_mb,
+        archive_days: policy.archive_days,
+      },
+      usage_status: usageStatus,
       dreaming_history: dreaming.history(1),
     };
 

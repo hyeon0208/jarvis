@@ -1,0 +1,16 @@
+# Jarvis 메모리 정책
+# 장기기억(SQLite + FTS5) 용량/정리 정책을 정의합니다.
+# 핫 리로드: 데몬 재시작 없이 매 호출마다 다시 읽습니다.
+
+memory:
+  # 소프트 리밋 (MB) — 초과 시 백그라운드 Dreaming 자동 실행 (중복 병합 + 오래된 항목 아카이브)
+  soft_limit_mb: 1024
+
+  # 하드 리밋 (MB) — 초과 시 즉시 강제 Dreaming + 더 짧은 archive_days로 추가 정리
+  hard_limit_mb: 2048
+
+  # 마지막 사용 후 N일 이상 지난 메모리는 아카이브 (Dreaming의 archiveStale 기준)
+  archive_days: 30
+
+  # 자동 트리거 최소 간격 (초) — auto-memory 훅이 너무 자주 Dreaming 발동하지 않도록
+  auto_dream_cooldown_seconds: 300

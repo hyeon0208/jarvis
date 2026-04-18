@@ -14,6 +14,7 @@ import {
   loadProjectsJsonc,
   loadEnvFile,
   loadClaudeSettings,
+  loadMemoryYml,
   listAllUsers,
 } from "./config.js";
 
@@ -301,6 +302,45 @@ function checkMcpRegistration(): CheckResult[] {
   }
 }
 
+function checkMemoryUsage(): CheckResult {
+  if (!existsSync(PATHS.memoryDb)) {
+    return { name: "메모리 DB 크기", severity: "OK", message: "DB 미생성 (0 MB)" };
+  }
+  try {
+    const policy = loadMemoryYml();
+    const sizeMb = Number((statSync(PATHS.memoryDb).size / (1024 * 1024)).toFixed(2));
+    const limits = `soft ${policy.soft_limit_mb} MB / hard ${policy.hard_limit_mb} MB`;
+
+    if (sizeMb >= policy.hard_limit_mb) {
+      return {
+        name: "메모리 DB 크기",
+        severity: "FAIL",
+        message: `${sizeMb} MB — hard 리밋 초과 (${limits})`,
+        hint: "bun run ~/jarvis/hooks/dreaming-cron.js 로 즉시 정리하세요",
+      };
+    }
+    if (sizeMb >= policy.soft_limit_mb) {
+      return {
+        name: "메모리 DB 크기",
+        severity: "WARN",
+        message: `${sizeMb} MB — soft 리밋 초과 (${limits})`,
+        hint: "곧 자동 Dreaming이 트리거됩니다. 또는 jarvis_memory_dream 호출",
+      };
+    }
+    return {
+      name: "메모리 DB 크기",
+      severity: "OK",
+      message: `${sizeMb} MB / soft ${policy.soft_limit_mb} MB`,
+    };
+  } catch (err) {
+    return {
+      name: "메모리 DB 크기",
+      severity: "WARN",
+      message: `크기 측정 실패: ${(err as Error).message}`,
+    };
+  }
+}
+
 function checkJarvisSymlink(): CheckResult {
   const jarvisBin = join(process.env.HOME ?? "~", ".local", "bin", "jarvis");
   if (!existsSync(jarvisBin)) {
@@ -335,6 +375,7 @@ export async function runAllChecks(opts: DiagnosticsOptions = {}): Promise<Diagn
   results.push(checkDaemon());
   results.push(...checkMcpRegistration());
   results.push(checkJarvisSymlink());
+  results.push(checkMemoryUsage());
 
   return {
     results,
@@ -351,6 +392,7 @@ export function runStartupChecks(): DiagnosticsSummary {
     checkProjectsJsonc(),
     ...checkProjectsSchema(),
     ...checkChannelTokens(),
+    checkMemoryUsage(),
   ];
 
   return {

@@ -158,7 +158,51 @@ sqlite3 ~/.jarvis/data/memory.db "SELECT COUNT(*) FROM sessions; SELECT COUNT(*)
 
 > ⚠️ **주의**: 세션 자동 적재 파이프라인은 **`auto-memory` 훅 → `~/.jarvis/sessions/*.json` → `jarvis_sync_sessions` MCP 호출** 3단계입니다. 마지막 sync 단계는 자동이 아니므로, `jarvis_session_search`가 빈 결과만 반환한다면 위 SQL로 0건인지 먼저 확인하고 수동 sync가 필요합니다.
 
-## IntentGate와 메모리 연동
+## IntentGate 자동화 (UserPromptSubmit 훅)
+
+`/jarvis` 명시 호출 없이도 **모든 사용자 입력**을 자동 분석해 메모리를 프리로딩합니다.
+
+### 동작 흐름
+
+```
+사용자 입력
+    │
+    ▼
+~/jarvis/hooks/intent-gate.js (UserPromptSubmit 훅)
+    │
+    ├─ 1. 키워드 매칭으로 카테고리/복잡도 분류 (LLM 호출 X, latency ~수 ms)
+    │
+    ├─ 2. quick(짧은 인사/잡담)이면 통과
+    │
+    ├─ 3. standard/deep이면 SQLite FTS5 직접 조회
+    │     ├─ declarative_memory   (사실/선호도)
+    │     ├─ session_messages     (유사 과거 작업)
+    │     └─ procedural_memory    (관련 스킬)
+    │
+    └─ 4. 결과를 hookSpecificOutput.additionalContext로 출력
+              → Claude Code가 모델 컨텍스트에 자동 주입
+```
+
+### 등록
+
+`jarvis install-mcp`가 `~/.claude/settings.json`의 `hooks.UserPromptSubmit`에 자동 등록합니다.
+수동 확인:
+
+```bash
+jq '.hooks.UserPromptSubmit' ~/.claude/settings.json
+```
+
+### `/jarvis` 명시 호출과의 차이
+
+| 항목 | UserPromptSubmit 훅 (자동) | `/jarvis` (수동) |
+|------|--------------------------|-----------------|
+| 발동 | 모든 사용자 입력 | `/jarvis`로 시작할 때만 |
+| 분류 | 키워드 매칭 (결정적) | LLM이 SKILL.md 절차 따라 판단 |
+| 메모리 검색 | FTS5 직접 호출 | `jarvis_memory_recall` MCP 도구 |
+| 컨텍스트 주입 | additionalContext로 자동 | 모델이 결과를 응답에 반영 |
+| 적합한 경우 | 일상 사용 (모든 요청) | deep 분석 + 작업 분해 필요할 때 |
+
+## IntentGate와 메모리 연동 (수동 호출 시)
 
 `/jarvis` 커맨드로 요청하면 **자동으로 메모리를 프리로딩**합니다:
 
@@ -180,20 +224,35 @@ Jarvis 내부 동작:
 
 ## Dreaming (메모리 정리)
 
-주기적으로 메모리를 정리합니다:
+주기적으로 메모리를 정리합니다. 트리거는 3가지입니다.
 
-### 수동 실행
+### 트리거 방식
 
+| 트리거 | 발동 조건 | 비고 |
+|-------|---------|------|
+| 수동 | `/jarvis dream` 또는 `bun run ~/jarvis/hooks/dreaming-cron.js` | 즉시 실행 |
+| 자동 (용량 기반) | DB 크기가 `soft_limit_mb` 초과 시 | `auto-memory` 훅이 백그라운드 spawn |
+| 정기 (크론) | launchd/cron으로 스케줄 등록 시 | 선택사항 |
+
+### 메모리 정책 (`config/memory.yml`)
+
+```yaml
+memory:
+  soft_limit_mb: 1024      # 초과 시 백그라운드 Dreaming 자동 실행
+  hard_limit_mb: 2048      # 초과 시 즉시 강제 + 더 짧은 archive_days로 추가 정리
+  archive_days: 30         # 마지막 사용 후 N일 지난 메모리 아카이브
+  auto_dream_cooldown_seconds: 300  # 자동 트리거 최소 간격
 ```
-/jarvis dream
-```
+
+핫 리로드: 데몬 재시작 없이 매 호출마다 다시 읽습니다 (mtime 캐시).
 
 ### 정리 내용
 
 | 동작 | 설명 |
 |------|------|
 | 중복 병합 | 같은 키로 여러 개 존재 시 최신만 유지 |
-| 오래된 아카이브 | 90일 이상 미사용 메모리 아카이브 |
+| 오래된 아카이브 | `archive_days`(기본 30일) 이상 미사용 메모리 아카이브 |
+| hard 초과 시 | `archive_days`를 절반으로 줄여 더 공격적으로 아카이브 |
 
 ### 결과 예시
 
@@ -266,7 +325,14 @@ jarvis_dream_history
   "sessions": 42,
   "session_messages": 1280,
   "paired_users": 3,
-  "total_users": 4
+  "total_users": 4,
+  "db_size_mb": 12.34,
+  "memory_policy": {
+    "soft_limit_mb": 1024,
+    "hard_limit_mb": 2048,
+    "archive_days": 30
+  },
+  "usage_status": "normal"   // normal | soft_exceeded | hard_exceeded
 }
 ```
 
