@@ -24,7 +24,7 @@ interface ProfileClaudeConfig {
   add_dirs?: string[];
   system_prompt?: string;
   model?: string;
-  effort?: "low" | "medium" | "high" | "max";
+  effort?: "low" | "medium" | "high" | "xhigh" | "max";
   skip_permissions?: boolean;
 }
 

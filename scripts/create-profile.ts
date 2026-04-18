@@ -250,10 +250,11 @@ async function main() {
     "low    — 빠르고 저렴, 단순 작업에 적합",
     "medium — 균형 (기본값)",
     "high   — 깊이 사고, 복잡한 작업에 적합",
+    "xhigh  — 더 깊은 사고, 어려운 디버깅/설계에 적합 (Opus 4.7+)",
     "max    — 최대 추론, 매우 복잡한 설계/디버깅에 적합",
     "기본값 사용 (Claude Code 설정에 따름)",
   ]);
-  const effortMap = ["low", "medium", "high", "max", ""];
+  const effortMap = ["low", "medium", "high", "xhigh", "max", ""];
   const effort = effortMap[effortChoice];
 
   // 9. 타임아웃
