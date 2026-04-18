@@ -22,7 +22,7 @@ profiles:
     description: "전체 관리자"
     claude:
       skip_permissions: true
-      effort: max  # Owner 전용, 모든 작업에서 최대 추론
+      effort: high  # Owner 전용, 일반 사용 적정 수준
     timeout: 600
 
   # ──────────────────────────────────────
