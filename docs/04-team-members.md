@@ -98,47 +98,59 @@ jarvis chat
 봇   → "JPA N+1 문제는 연관 엔티티를 조회할 때 발생하는..."
 ```
 
-## 프로필 상세
+## 프로필 구조
 
-### owner (Owner 본인 전용)
+프로필은 `config/profiles.yml`에 정의되어 있고 **마음대로 추가/수정**할 수 있습니다.
+기본 저장소에는 아래 4개가 **예시로 제공**됩니다. 실제 사용 전에 `jarvis edit-profile <name>`로 본인 팀에 맞게 조정하세요.
 
-```
-허용: 모든 도구, 모든 파일, 모든 명령, git 전체
-제한: 없음 (--dangerously-skip-permissions)
-용도: Owner 본인의 외부 채널 계정에만 부여
-경고: 이 프로필은 jarvis 쉘 명령(Owner CLI)까지 실행 가능.
-     팀원에게는 absolutely 부여하지 마세요.
-```
+### owner (Owner 본인 전용, 고정)
 
-### developer (개발자)
+유일하게 **변경하지 말아야 할 프로필**입니다. `skip_permissions: true`로 모든 제한을 우회합니다.
 
-```
-허용: Read, Write, Edit, Grep, Glob
-       git add/commit/push/checkout/branch
-       bun test, gradle test, npm test
-       /dev 워크플로우
-제한: git push --force 차단, git reset --hard 차단
-       비용 요청당 $0.5 제한
-       새 브랜치 생성 시 반드시 dev/main에서 pull 후 생성
-용도: 백엔드/프론트엔드 개발자
+```yaml
+owner:
+  claude:
+    skip_permissions: true
+    effort: high
+  timeout: 600
 ```
 
-### reviewer (리뷰어)
+> 절대 다른 팀원에게 이 프로필을 부여하지 마세요. `jarvis` 쉘 명령까지 실행 가능합니다.
 
-```
-허용: Read, Grep, Glob
-       git status/log/diff/show/blame (읽기 전용)
-제한: 파일 수정 불가, 명령 실행 불가
-용도: 코드 리뷰어, 시니어 개발자 (검토용)
+### 나머지 프로필은 **예시**입니다
+
+기본 저장소의 `developer`, `reviewer`, `observer`는 **일반적인 팀 구성을 참고해 만든 샘플**입니다.
+본인 환경에 맞게 다음 방법으로 조정하세요:
+
+1. **기존 예시 수정**: `jarvis edit-profile developer` — 도구/디렉토리/프롬프트 질문형 수정
+2. **새 프로필 생성**: `jarvis create-profile` — 처음부터 원하는 권한으로 설정
+3. **YAML 직접 편집**: `config/profiles.yml` 수정 (핫 리로드 지원)
+
+기본 예시의 대략적인 범위:
+
+| 프로필 | 범위 요약 |
+|--------|---------|
+| `developer` | 프로젝트 내 코드 읽기/쓰기, git add/commit/push, 빌드/테스트 실행 |
+| `reviewer` | 읽기만 + git 조회 명령 |
+| `observer` | 읽기 + 웹 검색만, 명령 실행 불가 |
+
+실제 포함된 정확한 도구 목록은 현재 `config/profiles.yml` 파일이 **단일 진실 공급원(single source of truth)** 입니다. 아래 명령으로 확인하세요:
+
+```bash
+jarvis list profiles
+cat ~/jarvis/config/profiles.yml
 ```
 
-### observer (옵저버)
+### 프로필 커스터마이징 예시
 
-```
-허용: Read, Grep, Glob, WebSearch
-제한: docs/ 디렉토리만 접근
-       파일 수정 불가, 명령 실행 불가
-용도: PM, 디자이너, 신입 (질문용)
+```bash
+# 기존 developer에 Docker 명령 추가
+jarvis edit-profile developer
+# → allowed_tools 수정 단계에서 "항목 추가" 선택 → "Bash(docker ps:*),Bash(docker logs:*)"
+
+# 인턴용 새 프로필 생성
+jarvis create-profile
+# → 이름: intern, 허용: 읽기만, 디렉토리: docs/ 등으로 지정
 ```
 
 ## 개인화 설정

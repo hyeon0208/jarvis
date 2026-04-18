@@ -144,7 +144,7 @@ async function main() {
   const addDirs: string[] = [];
 
   console.log("\x1b[33mconfig/projects.jsonc에 등록된 프로젝트 저장소의 경로를 자동으로 허용합니다.");
-  console.log("예: vingle-backend → /Users/.../vingle-backend 자동 추가\x1b[0m");
+  console.log("예: my-backend → /path/to/my-backend 자동 추가\x1b[0m");
   if (await askYesNo("등록된 프로젝트 디렉토리를 자동 허용할까요? (권장: y)")) {
     addDirs.push("from_projects");
   }

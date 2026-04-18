@@ -44,7 +44,7 @@
 팀원: /dev UserService에 이메일 검증 추가
 
 Jarvis: 어떤 프로젝트에서 작업할까요?
-        1. vingle-backend (vingle-backend)
+        1. my-backend (my-backend)
         번호를 입력하세요.
 
 팀원: 1
@@ -58,7 +58,7 @@ Jarvis: 어떻게 시작할까요?
 
 Jarvis: 개발 환경이 준비되었습니다!
 
-        프로젝트: vingle-backend
+        프로젝트: my-backend
         브랜치: feature/userservice에-이메일-검증-추가 (← dev)
         작업 디렉토리: /project/.jarvis-worktrees/telegram_12345
 
@@ -82,7 +82,7 @@ Jarvis: bun test 결과:
 Jarvis: 작업 완료! PR이 생성되었습니다.
 
         브랜치: feature/userservice에-이메일-검증-추가 → dev
-        PR: https://github.com/cosmos-official/vingle-backend/pull/42
+        PR: https://github.com/myorg/my-backend/pull/42
 ```
 
 ### 예시 2: 이슈 생성 후 브랜치
@@ -91,7 +91,7 @@ Jarvis: 작업 완료! PR이 생성되었습니다.
 팀원: /dev 결제 실패 시 재시도 로직 구현
 
 Jarvis: 어떤 프로젝트에서 작업할까요?
-        1. vingle-backend
+        1. my-backend
         번호를 입력하세요.
 
 팀원: 1
@@ -104,7 +104,7 @@ Jarvis: 어떻게 시작할까요?
 
 Jarvis: 개발 환경이 준비되었습니다!
 
-        프로젝트: vingle-backend
+        프로젝트: my-backend
         브랜치: feature/결제-실패-시-재시도-로직-구현 (← dev)
         이슈: #15
 
@@ -172,11 +172,11 @@ Owner: main 브랜치에서 직접 작업
 ```jsonc
 {
   "projects": {
-    "vingle-backend": {
-      "name": "vingle-backend",
-      "path": "/Users/hyeonjun/Desktop/프로젝트/vingle-backend",
+    "my-backend": {
+      "name": "my-backend",
+      "path": "/path/to/my-backend",
       "parent_branch": "dev",
-      "repo": "cosmos-official/vingle-backend",
+      "repo": "myorg/my-backend",
       "allowed_profiles": ["owner", "developer"],
       "branch_prefix": "feature"
     }
@@ -186,9 +186,9 @@ Owner: main 브랜치에서 직접 작업
 
 | 필드 | 설명 | 예시 |
 |------|------|------|
-| `path` | 로컬 git clone 경로 | `/Users/.../vingle-backend` |
+| `path` | 로컬 git clone 경로 | `/Users/.../my-backend` |
 | `parent_branch` | pull 받을 브랜치 | `dev` 또는 `main` |
-| `repo` | GitHub owner/repo (PR 생성용) | `cosmos-official/vingle-backend` |
+| `repo` | GitHub owner/repo (PR 생성용) | `myorg/my-backend` |
 | `allowed_profiles` | 접근 가능한 프로필 | `["owner", "developer"]` |
 | `branch_prefix` | 생성할 브랜치 접두사 | `feature`, `fix`, `hotfix` |
 
@@ -197,12 +197,12 @@ Owner: main 브랜치에서 직접 작업
 ```jsonc
 {
   "projects": {
-    "vingle-backend": { ... },
-    "vingle-frontend": {
-      "name": "vingle-frontend",
-      "path": "/Users/hyeonjun/Desktop/프로젝트/vingle-frontend",
+    "my-backend": { ... },
+    "my-frontend": {
+      "name": "my-frontend",
+      "path": "/path/to/my-frontend",
       "parent_branch": "main",
-      "repo": "cosmos-official/vingle-frontend",
+      "repo": "myorg/my-frontend",
       "allowed_profiles": ["owner", "developer"],
       "branch_prefix": "feature"
     }

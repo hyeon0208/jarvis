@@ -62,14 +62,18 @@ jarvis uninstall    # 해제
 
 외부 채널 요청은 **매번 허락을 받지 않고** 프로필 권한 범위 내에서 자동 실행됩니다.
 
+`owner`는 고정이고, 나머지는 `config/profiles.yml`에 **예시로 제공된 프로필**의 대략적인 동작입니다.
+
 ```
-owner     → claude -p "..." --dangerously-skip-permissions
-developer → claude -p "..." --allowedTools "Read,Write,Edit,Grep,..."
-reviewer  → claude -p "..." --allowedTools "Read,Grep,Glob,..."
-observer  → claude -p "..." --allowedTools "Read,Grep,WebSearch"
+owner            → claude -p "..." --dangerously-skip-permissions
+developer (예시)  → claude -p "..." --allowedTools "Read,Write,Edit,Grep,..."
+reviewer (예시)   → claude -p "..." --allowedTools "Read,Grep,Glob,..."
+observer (예시)   → claude -p "..." --allowedTools "Read,Grep,WebSearch"
 ```
 
-**observer가 "코드 수정해줘"라고 요청해도**, Write/Edit 도구가 허용 목록에 없으므로 Claude가 수정을 수행할 수 없습니다.
+`developer` 등 팀원용 프로필의 정확한 도구 목록은 `config/profiles.yml`을 참조하거나 `jarvis list profiles`로 확인하세요. 본인 환경에 맞게 `jarvis edit-profile`로 조정할 수 있습니다.
+
+**허용 목록에 없는 도구는 Claude가 호출하려 해도 묻지 않고 자동 거부됩니다.**
 
 > `owner` 프로필은 `skip_permissions: true`로 모든 도구가 자동 허용됩니다.
 > 따라서 **Owner 본인에게만 부여**하세요. 다른 팀원에게 `owner` 프로필을 지정하면
