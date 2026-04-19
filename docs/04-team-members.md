@@ -58,22 +58,45 @@ jarvis doctor    # ✓ Telegram 토큰: @your_bot_username 확인
      │<────────────────────>│                      │
 ```
 
-## 1단계: 팀원이 봇 username을 받음
+## 1단계: 팀원이 봇 발견
 
-Owner가 만든 **봇 1개**의 username을 팀원에게 공유합니다 (예: `@my_jarvis_bot`). 같은 봇 1개로 모든 팀원이 페어링·사용 가능합니다.
+플랫폼마다 팀원이 봇에 닿는 방식이 다릅니다.
+
+### Telegram (1:1 DM)
+
+봇을 조직에 추가하는 개념이 없으므로 **Owner가 봇 username을 팀원에게 공유**합니다 (예: `@my_jarvis_bot`). 팀원은 자기 Telegram에서 그 username을 검색해서 1:1 대화를 시작합니다.
 
 ```
-Owner → 팀원들: "Jarvis 봇 username은 @my_jarvis_bot 이야"
+Owner → 팀원들: "Jarvis 봇 username은 @my_jarvis_bot 이야, 검색해서 시작해줘"
 ```
+
+### Slack (1:N 워크스페이스)
+
+Owner가 Slack App을 **워크스페이스에 설치**한 시점부터 그 워크스페이스의 모든 멤버는 자동으로 봇을 인지합니다. 별도 username 공유 불필요.
+
+팀원이 봇과 상호작용하는 두 가지 방법:
+- **DM**: 사이드바의 "Apps" 섹션에서 Jarvis 봇 클릭 → 1:1 DM 시작
+- **채널 멘션**: 봇을 채널에 초대(`/invite @Jarvis`) → 채널에서 `@Jarvis 질문 내용` (응답은 스레드)
+
+```
+Owner → 팀원들: "Jarvis 봇이 워크스페이스에 추가됐어. DM이나 채널에서 @Jarvis로 호출해줘"
+```
+
+### Discord (1:N 서버)
+
+Slack과 유사 — Owner가 봇을 서버(guild)에 초대하면 그 서버 멤버 모두가 인지. DM 또는 채널 `@봇` 멘션으로 호출.
+
+### 공통
+
+모든 플랫폼에서 첫 메시지는 **페어링 코드 발급**으로 시작됩니다 (다음 단계).
 
 ## 2단계: 팀원이 봇에 메시지 전송
 
-팀원이 자기 모바일에서:
+플랫폼별 진입 후 봇에 아무 메시지 보내면 페어링 코드가 발급됩니다.
 
-1. Telegram 앱 열기
-2. 검색창에 Owner가 알려준 봇 username 입력 (예: `@my_jarvis_bot`)
-3. "시작" 버튼 클릭
-4. 아무 메시지 전송 (예: "안녕하세요")
+- **Telegram**: 검색한 봇과의 1:1 채팅에서 "시작" 버튼 클릭 → 메시지 전송
+- **Slack**: 사이드바 Apps에서 봇 클릭 → DM에 메시지 전송 (또는 채널에서 `@봇 안녕`)
+- **Discord**: DM 또는 봇이 있는 서버 채널에서 `@봇 안녕`
 
 ```
 팀원 → "안녕하세요"
@@ -83,6 +106,8 @@ Owner → 팀원들: "Jarvis 봇 username은 @my_jarvis_bot 이야"
 
         관리자에게 이 코드를 전달하세요. 코드는 24시간 후 만료됩니다."
 ```
+
+> 페어링 시점에는 플랫폼이 무엇이든 흐름이 동일합니다. user_id만 `telegram:NNN` / `slack:UXXX` / `discord:NNN`으로 자동 분기됩니다.
 
 ## 3단계: Owner가 승인
 

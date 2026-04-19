@@ -7,12 +7,15 @@
 
 ## 사전 정보
 
-- **봇 1개 = 데몬 인스턴스 1개**. 그 봇으로 **여러 팀원이 동시에** Jarvis 사용 가능
+- **상호작용은 1:1 DM만**. Telegram에는 "봇을 워크스페이스/서버에 추가" 개념이 없습니다 — 사용자가 봇 username을 검색해서 각자 1:1 채팅을 시작하는 구조 (그룹채팅 봇은 가능하지만 Jarvis는 DM 전용으로 동작).
+- **봇 1개 = 데몬 인스턴스 1개**. 그 봇으로 **여러 팀원이 동시에** Jarvis 사용 가능 (각자 별도 1:1 채팅).
 - 각 팀원의 메시지는 Telegram `chat_id`로 자동 식별 → user_id `telegram:{chat_id}`로 분리 처리
 - 통신 방식: **long polling** (데몬이 Telegram 서버에 1초마다 "새 메시지 있어?" 질의)
 - 외부 포트 오픈 불필요
 - 구현 코드: [`packages/gateway-server/src/adapters/telegram.ts`](../packages/gateway-server/src/adapters/telegram.ts)
 - 메시지 격리: 자동 — 모든 Telegram 유저는 `telegram:{chat_id}` user_id로 메모리/대화/디렉토리가 분리됩니다 ([06-memory.md#사용자별-메모리-격리](06-memory.md#사용자별-메모리-격리))
+
+> Slack/Discord는 다릅니다 — 워크스페이스/서버에 봇이 추가되면 DM뿐 아니라 **채널에서 `@봇` 멘션도 가능** (1:N). 자세히는 [10. Slack 채널 설정](10-slack-setup.md) 참고.
 
 ---
 
