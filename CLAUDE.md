@@ -149,6 +149,7 @@ jarvis user ls | show | profile | rename | rm
 | [08. Owner CLI](docs/08-owner-cli.md) | Owner CLI vs owner 프로필 구분 |
 | [09. Personality](docs/09-personalization.md) | 유저별 말투/언어/호칭 |
 | [10. Slack 채널 설정](docs/10-slack-setup.md) | Slack App + Socket Mode + 토큰 등록 |
+| [11. Telegram 채널 설정](docs/11-telegram-setup.md) | BotFather + 토큰 등록 + 페어링 |
 
 ---
 

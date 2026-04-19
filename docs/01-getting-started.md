@@ -86,24 +86,32 @@ Claude Code를 재시작한 후:
 
 메모리 통계가 표시되면 설치 성공입니다.
 
-### 4단계 (선택): Telegram 봇 연결
+### 4단계 (선택): 외부 채널 연결
 
-팀원들이 Telegram으로 접근하게 하려면:
+본인 또는 팀원이 Telegram/Slack/Discord 등으로 Jarvis에 접근하게 하려면 **본인 명의의 봇을 직접 생성**해야 합니다 (공용 봇은 제공되지 않습니다 — 데몬 운영자별로 봇이 분리되어 메시지가 본인 머신에서만 처리됩니다).
 
-1. [BotFather](https://t.me/BotFather)에서 봇 생성 → 토큰 발급
-2. `~/jarvis/.env`에 토큰 등록:
+채널별 설정 가이드:
 
-```bash
-cp .env.example .env
-# .env 파일 편집:
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-```
+- **[Telegram](11-telegram-setup.md)** — BotFather에서 봇 생성 + 토큰 등록 + 페어링
+- **[Slack](10-slack-setup.md)** — Slack App 생성 + Socket Mode + Bot/App Token
+- **Discord** — discord.com/developers/applications에서 봇 생성 → `jarvis channel token discord <토큰>` + `jarvis channel enable discord`
 
-3. 데몬 시작:
+빠른 요약 (Telegram):
 
 ```bash
+# 1. BotFather에서 봇 생성 → 토큰 받기
+# 2. 토큰 등록 + 채널 활성화
+jarvis channel token telegram <토큰>
+jarvis channel enable telegram
+# 3. 데몬 시작
 jarvis start
+# 4. 본인 페어링
+#    Telegram에서 본인이 만든 봇과 대화 → 페어링 코드 발급 →
+jarvis pair list
+jarvis pair approve <코드> owner
 ```
+
+상세는 [11. Telegram 채널 설정](11-telegram-setup.md) 참고.
 
 ## 디렉토리 구조
 
@@ -129,5 +137,7 @@ Jarvis는 **두 개의 디렉토리**를 사용합니다:
 ## 다음 단계
 
 - [아키텍처 이해](02-architecture.md) — 전체 구조 파악
-- [팀원 등록](04-team-members.md) — Telegram으로 팀원 연결
+- [Telegram 채널 설정](11-telegram-setup.md) — BotFather 단계별 가이드
+- [Slack 채널 설정](10-slack-setup.md) — Socket Mode 기반
+- [팀원 등록](04-team-members.md) — 페어링 + 프로필 + 개인화
 - [개발 워크플로우](05-dev-workflow.md) — `/dev` 커맨드로 코드 작업

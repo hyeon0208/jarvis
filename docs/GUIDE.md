@@ -17,6 +17,7 @@
 | [08. Owner CLI](08-owner-cli.md) | Owner가 로컬 터미널에서 쓰는 관리 명령 (pair/list/doctor/project/channel/user) + 마법사 + 자동 진단 |
 | [09. 유저별 Personality](09-personalization.md) | 에이전트 말투/언어/상세도/호칭 설정 + 시스템 프롬프트 변환 흐름 |
 | [10. Slack 채널 설정](10-slack-setup.md) | Slack App 생성 → Socket Mode → 토큰 등록 → 페어링까지 |
+| [11. Telegram 채널 설정](11-telegram-setup.md) | BotFather → 토큰 등록 → 본인/팀원 페어링까지 |
 
 ## 빠른 시작
 

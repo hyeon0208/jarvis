@@ -56,12 +56,15 @@ jarvis ask "질문 내용"       # 한 번 질문
 
 ```bash
 # (B) 외부 채널(Telegram 등) 요청을 상시 받기 — 백그라운드 데몬 (선택)
+# ※ 공용 봇은 없습니다 — 본인 명의의 봇을 직접 만들어야 합니다.
+#   Telegram: BotFather에서 생성    → docs/11-telegram-setup.md
+#   Slack:    api.slack.com/apps   → docs/10-slack-setup.md
 jarvis add-channel          # 채널 + 봇 토큰 설정 (최초 1회)
 jarvis start                # 데몬 기동
 jarvis install              # 맥 부팅 시 자동 시작 (launchd)
 ```
 
-(A)와 (B)는 서로 간섭하지 않으며 **병행 사용 가능**합니다. Owner 본인은 터미널에서 `chat`을 쓰고, 동시에 데몬이 팀원 Telegram 요청을 받아 처리하는 식으로 조합합니다.
+(A)와 (B)는 서로 간섭하지 않으며 **병행 사용 가능**합니다. Owner 본인은 터미널에서 `chat`을 쓰고, 동시에 데몬이 본인이 만든 봇을 통해 팀원 요청을 받아 처리하는 식으로 조합합니다.
 
 ### 5. 새 프로젝트/프로필 추가
 
@@ -171,6 +174,7 @@ Claude Code (구독 기반)
 | [08. Owner CLI](docs/08-owner-cli.md) | 관리 명령 + 마법사 + 자동 진단 |
 | [09. 유저별 Personality](docs/09-personalization.md) | 에이전트 말투/언어/상세도/호칭 커스터마이징 |
 | [10. Slack 채널 설정](docs/10-slack-setup.md) | Slack App 생성/Socket Mode/토큰 등록 단계별 가이드 |
+| [11. Telegram 채널 설정](docs/11-telegram-setup.md) | BotFather에서 봇 생성/토큰 등록/페어링 흐름 |
 
 ---
 
