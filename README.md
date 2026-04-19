@@ -84,6 +84,8 @@ jarvis edit-profile <name>  # 기존 프로필 수정
 | **자율 스킬 생성** | 복잡 작업 후 SKILL.md 자동 생성 + 보안 스캔 | [docs/06-memory.md](docs/06-memory.md) |
 | **멀티채널 게이트웨이** | Telegram/Discord/Slack 어댑터 + 채널별 활성화 | [docs/04-team-members.md](docs/04-team-members.md) |
 | **프로필 권한** | YAML 설정, `--allowedTools`/`--disallowedTools`/`--add-dir`로 격리 | [docs/04-team-members.md](docs/04-team-members.md) |
+| **사용자별 격리** | cwd 샌드박스 + `JARVIS_USER_ID` env + 프로필별 디렉토리 화이트리스트 | [docs/04-team-members.md#격리-메커니즘-한눈에](docs/04-team-members.md) |
+| **세션 연속성** | user별 영속 UUID → `claude --session-id`로 대화 컨텍스트 자동 복원, `/clear`로 리셋 | [docs/06-memory.md#단기-컨텍스트-vs-장기-메모리](docs/06-memory.md) |
 | **개발 워크플로우** | `/dev` 커맨드 → 프로젝트 선택 → worktree → PR 자동 생성 | [docs/05-dev-workflow.md](docs/05-dev-workflow.md) |
 | **크론잡** | 자연어 스케줄 (`"매일 9시 보고서"`) | [docs/07-commands.md](docs/07-commands.md) |
 | **Owner CLI** | pair/list/doctor/project/channel/user 관리 명령 + 마법사 | [docs/08-owner-cli.md](docs/08-owner-cli.md) |

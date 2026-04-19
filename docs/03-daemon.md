@@ -47,16 +47,41 @@ jarvis uninstall    # 해제
 ## 데몬이 하는 일
 
 ```
-매 1초마다:
-  1. Telegram API에 "새 메시지 있어?" 물어봄 (getUpdates)
+매 1초마다 (Telegram polling, Slack/Discord는 Socket Mode/WebSocket):
+  1. 채널 API에 "새 메시지 있어?" 물어봄
   2. 메시지가 있으면:
-     ├── 누가 보냈나? → chat_id로 유저 식별
+     ├── 누가 보냈나? → user_id = "{channel}:{external_id}" (예: "slack:U07ABC")
      ├── 등록된 유저인가? → 미등록이면 페어링 코드 발급
      ├── 어떤 프로필인가? → developer, observer 등
-     ├── 시스템 커맨드인가? → /help, /status 등이면 즉시 응답
+     ├── 시스템 커맨드인가? → /help, /status, /clear 등이면 즉시 응답
      ├── /dev 커맨드인가? → 개발 워크플로우 진행
-     └── 일반 메시지인가? → claude -p로 실행 후 응답
+     └── 일반 메시지인가? → 격리 5층 적용 후 claude spawn
 ```
+
+### 일반 메시지 처리 — 격리 5층
+
+```
+[1] 도구 권한
+    profile.allowed_tools / disallowed_tools → --allowedTools / --disallowedTools 인자
+
+[2] 디렉토리 화이트리스트
+    profile.add_dirs (from_projects 키워드 → projects.jsonc 동적 로드) → --add-dir 인자
+
+[3] cwd 샌드박스 (핵심)
+    cwd: ~/.jarvis/sandboxes/{safe-user-id}/   ← 빈 디렉토리
+    → Read 도구가 cwd 하위 탐색해도 0건 → 홈 자동 차단
+
+[4] 메모리 격리 (장기)
+    env JARVIS_USER_ID, JARVIS_USER_NAME, JARVIS_CHANNEL 주입
+    → MCP 서버(jarvis-memory)가 자동으로 user별 데이터 분리
+
+[5] 대화 컨텍스트 (단기)
+    user 파일의 claude_session_id (UUID) → --session-id 인자
+    → claude가 ~/.claude/projects/.../{uuid}.jsonl에서 이전 대화 자동 복원
+    → /clear로 초기화 가능 (새 UUID 발급)
+```
+
+자세히는 [02. 아키텍처 — 보안 계층](02-architecture.md#보안-계층) + [06. 메모리 — 사용자별 격리](06-memory.md#사용자별-메모리-격리).
 
 ## 자동 승인 (프로필별)
 
@@ -95,10 +120,13 @@ observer (예시)   → claude -p "..." --allowedTools "Read,Grep,WebSearch"
 [11:20:33] [INFO] Telegram 봇 커맨드 메뉴 등록됨
 [11:20:33] [INFO] Telegram 리스너 활성화됨
 [11:20:33] [INFO] Jarvis Daemon 대기 중...
-[11:21:15] [INFO] 수신: [telegram] 김철수: /dev 로그인 기능 구현
-[11:21:15] [INFO] claude 실행: profile=developer, dir=/project/.jarvis-worktrees/...
+[11:21:15] [INFO] 수신: [telegram] 김철수: 이메일 검증 코드 보여줘
+[11:21:15] [INFO] cwd 샌드박스: /Users/hyeonjun/.jarvis/sandboxes/telegram_1613476146
+[11:21:15] [INFO] claude 실행: profile=developer, session=e01b1e78..., dir=sandbox, prompt=이메일 검증 코드...
 [11:21:45] [INFO] claude 완료: 850자 응답
 ```
+
+`session=`은 user의 `claude_session_id` UUID 8자리 prefix입니다. 같은 유저는 매번 같은 prefix가 찍히고, `/clear` 후엔 새 prefix로 바뀝니다.
 
 ## 트러블슈팅
 
