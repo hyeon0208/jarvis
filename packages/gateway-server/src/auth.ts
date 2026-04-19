@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 const DATA_DIR = join(process.env.HOME ?? "~", ".jarvis", "data");
 const USERS_DIR = join(process.env.HOME ?? "~", ".jarvis", "users");
@@ -174,4 +174,52 @@ export function updateUserConfig(
   const merged = { ...current, ...updates };
   writeFileSync(userFilePath(userId), JSON.stringify(merged, null, 2));
   return true;
+}
+
+/**
+ * Claude 세션 ID를 user_id별로 매핑 관리합니다.
+ *
+ * 목적: claude -p는 매 호출마다 새 세션이라 이전 대화를 잊습니다.
+ *       --session-id <UUID>를 같은 값으로 다시 호출하면 claude가 이전 대화를 이어갑니다.
+ *       이 함수가 user_id별로 영속적인 UUID를 1:1 매핑해서 보관합니다.
+ *
+ * - 처음 호출이면 새 UUID 생성 후 user 파일에 저장
+ * - 이미 있으면 기존 UUID 반환
+ * - 저장 위치: ~/.jarvis/users/{safe-user-id}.json의 claude_session_id 필드
+ */
+export function getOrCreateClaudeSessionId(userId: string): string {
+  const config = loadUserConfig(userId);
+  if (config && typeof config.claude_session_id === "string" && config.claude_session_id) {
+    return config.claude_session_id;
+  }
+
+  // node:crypto의 randomUUID는 RFC 4122 v4 UUID를 생성 (claude --session-id 요구 형식)
+  const newId = randomUUID();
+  if (config) {
+    updateUserConfig(userId, { claude_session_id: newId });
+  } else {
+    // user 파일 자체가 없는 경우 (페어링 직후 등): 생성
+    writeFileSync(
+      userFilePath(userId),
+      JSON.stringify({ user_id: userId, claude_session_id: newId }, null, 2),
+    );
+  }
+  return newId;
+}
+
+/**
+ * Claude 세션 ID를 초기화합니다 (대화 컨텍스트 리셋).
+ *
+ * - 기존 UUID를 삭제 → 다음 메시지 처리 시 getOrCreateClaudeSessionId가 새 UUID 생성
+ * - claude의 이전 세션 jsonl 파일은 그대로 두고, 새 세션부터 시작
+ * - 메모리(jarvis_memory) 데이터는 영향 없음 (별개 시스템)
+ *
+ * 반환: 직전에 사용 중이던 UUID (없었으면 null)
+ */
+export function resetClaudeSessionId(userId: string): string | null {
+  const config = loadUserConfig(userId);
+  if (!config) return null;
+  const previous = (config.claude_session_id as string | undefined) ?? null;
+  updateUserConfig(userId, { claude_session_id: null });
+  return previous;
 }

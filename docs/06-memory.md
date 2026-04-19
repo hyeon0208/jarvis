@@ -5,6 +5,56 @@
 Jarvis는 **3계층 메모리**로 세션 간 맥락을 유지합니다.
 과거에 했던 작업, 사용자 선호도, 자주 쓰는 스킬을 기억하여 더 나은 응답을 제공합니다.
 
+## 단기 컨텍스트 vs 장기 메모리
+
+Jarvis는 두 가지 "기억"을 별개로 관리합니다.
+
+| 유형 | 저장소 | 수명 | 무엇을 기억 |
+|-----|-------|-----|-----------|
+| **단기 컨텍스트** (대화 흐름) | claude 세션 (`~/.claude/projects/.../*.jsonl`) | 세션 ID가 살아있는 동안 | 직전 메시지, 직전 응답 (코드 컨텍스트) |
+| **장기 메모리** (선언/절차/세션 검색) | SQLite + FTS5 (`~/.jarvis/data/memory.db`) | 영구 (Dreaming으로 정리) | 사용자 선호도, 과거 작업 요약, 스킬 |
+
+### user_id별 단기 컨텍스트 보존
+
+`claude -p`는 기본적으로 매 호출마다 새 세션이라 **이전 대화를 잊습니다**. Jarvis는 이를 user_id별 영속 UUID 매핑으로 해결:
+
+```
+1번째 메시지 (slack:U07ABC):
+  데몬 → getOrCreateClaudeSessionId("slack:U07ABC")
+       → 새 UUID "abc-123-..." 생성, ~/.jarvis/users/slack_U07ABC.json에 저장
+       → spawn("claude", [..., "--session-id", "abc-123-..."])
+       → 응답
+
+2번째 메시지 (같은 유저):
+  데몬 → getOrCreateClaudeSessionId("slack:U07ABC")
+       → 저장된 "abc-123-..." 반환
+       → spawn("claude", [..., "--session-id", "abc-123-..."])
+       → claude가 1번째 대화를 ~/.claude/projects/.../abc-123-...jsonl에서 자동 복원
+       → "이름이 철수였지" 같은 맥락 유지
+```
+
+### 컨텍스트 초기화 — `/clear` 또는 `/reset`
+
+각 채널에서 `/clear`를 보내면 그 user의 단기 컨텍스트만 리셋됩니다.
+
+```
+팀원 → /clear
+봇   → 대화 컨텍스트가 초기화되었습니다.
+       이전 세션: abc12345...
+       새 세션: def67890...
+       지금부터 보내는 메시지는 처음 보는 대화로 처리됩니다.
+       (저장된 메모리/선호도/personality는 유지됩니다)
+```
+
+내부 동작:
+1. `resetClaudeSessionId(userId)` → user 파일의 `claude_session_id`를 `null`로
+2. `getOrCreateClaudeSessionId(userId)` → 즉시 새 UUID 발급해서 저장
+3. 다음 메시지부터 새 UUID로 claude 호출 → 새 세션 시작
+
+> **장기 메모리(선언/절차/세션 검색)는 영향 없음**. `/clear`는 claude의 단기 대화 맥락만 리셋. personality, cron_jobs, jarvis_memory_recall 결과는 그대로.
+
+---
+
 ## 사용자별 메모리 격리
 
 장기기억은 **요청자 user_id로 격리**됩니다. 같은 DB를 쓰지만 채널별/유저별 데이터는 서로 보이지 않습니다.

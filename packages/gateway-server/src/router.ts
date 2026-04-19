@@ -4,6 +4,7 @@ import {
   loadUserConfig,
 } from "./auth.js";
 import { getProfile, checkPermission } from "./profiles.js";
+import { resetClaudeSessionId, getOrCreateClaudeSessionId } from "./auth.js";
 import {
   getWorkflow,
   startWorkflow,
@@ -57,7 +58,8 @@ function parseCronCommand(message: string): {
 /** 시스템 커맨드 파싱 */
 function parseSystemCommand(message: string): string | null {
   const trimmed = message.trim();
-  const commands = ["/help", "/status", "/profile", "/personality"];
+  // /clear와 /reset은 동일 동작 (둘 다 허용)
+  const commands = ["/help", "/status", "/profile", "/personality", "/clear", "/reset"];
   for (const cmd of commands) {
     if (trimmed === cmd || trimmed.startsWith(cmd + " ")) return cmd;
   }
@@ -311,6 +313,8 @@ function handleSystemCommand(
           "/cron list      — 크론잡 목록",
           "/status         — Jarvis 상태",
           "/profile        — 내 프로필",
+          "/personality    — 개인화 설정 조회",
+          "/clear          — 대화 컨텍스트 초기화 (메모리는 유지)",
           "",
           "그 외 메시지는 AI 질문으로 처리됩니다.",
         ].join("\n"),
@@ -350,6 +354,25 @@ function handleSystemCommand(
               `호칭: ${personality.nickname}`,
             ].join("\n")
           : "개인화 설정이 없습니다.",
+      };
+    }
+
+    case "/clear":
+    case "/reset": {
+      // 1) 기존 claude_session_id를 null로 초기화
+      const previous = resetClaudeSessionId(msg.user_id);
+      // 2) 즉시 새 UUID 발급 (다음 메시지가 바로 새 세션으로 시작)
+      const next = getOrCreateClaudeSessionId(msg.user_id);
+      return {
+        action: "respond",
+        response: [
+          "대화 컨텍스트가 초기화되었습니다.",
+          `이전 세션: ${previous ? previous.slice(0, 8) + "..." : "없음"}`,
+          `새 세션: ${next.slice(0, 8)}...`,
+          "",
+          "지금부터 보내는 메시지는 처음 보는 대화로 처리됩니다.",
+          "(저장된 메모리/선호도/personality는 유지됩니다)",
+        ].join("\n"),
       };
     }
 

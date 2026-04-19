@@ -15,7 +15,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync } fr
 import { join } from "node:path";
 import { routeMessage, type IncomingMessage } from "./router.js";
 import { buildClaudeArgs, buildPersonalityPrompt } from "./permissions.js";
-import { loadUserConfig } from "./auth.js";
+import { loadUserConfig, getOrCreateClaudeSessionId } from "./auth.js";
 import { addCronJob, listCronJobs, deleteCronJob, toggleCronJob } from "./cron.js";
 // worktree는 workflow.ts가 관리 (router → workflow → worktree)
 
@@ -102,7 +102,16 @@ async function executeWithClaude(
     projectDir: workDir,
   });
 
-  log("INFO", `claude 실행: profile=${profileName}, dir=${workDir ?? "default"}, prompt=${prompt.slice(0, 80)}...`);
+  // 대화 컨텍스트 격리:
+  //   user_id별로 영속적인 UUID를 1:1 매핑해서 --session-id로 전달
+  //   → claude가 이전 대화 jsonl을 자동 복원해서 컨텍스트 유지
+  //   → 다른 유저는 다른 UUID라 메모리/디렉토리 격리와 일관
+  //   /clear 같은 명령으로 user 파일의 claude_session_id를 null로 초기화하면
+  //   다음 호출에서 새 UUID 발급되어 새 대화 시작
+  const claudeSessionId = getOrCreateClaudeSessionId(userId);
+  args.push("--session-id", claudeSessionId);
+
+  log("INFO", `claude 실행: profile=${profileName}, session=${claudeSessionId.slice(0, 8)}..., dir=${workDir ?? "sandbox"}, prompt=${prompt.slice(0, 80)}...`);
 
   return new Promise((resolve) => {
     // 사용자별 메모리 격리 핵심:

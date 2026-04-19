@@ -138,6 +138,7 @@ Telegram에서 `/`를 입력하면 자동완성 메뉴가 표시됩니다.
 | `/status` | Jarvis 상태 확인 | 전체 |
 | `/profile` | 내 프로필/권한 조회 | 전체 |
 | `/personality` | 개인화 설정 조회 | 전체 |
+| `/clear` (= `/reset`) | 대화 컨텍스트 초기화 — 새 세션 ID 발급 (메모리/personality는 유지) | 전체 |
 
 ### 개발 워크플로우
 
