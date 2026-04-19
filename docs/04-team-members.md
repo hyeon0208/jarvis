@@ -5,10 +5,12 @@
 팀원은 **Owner가 만든 채널 봇에 DM**을 보내 Jarvis를 사용합니다.
 Owner가 페어링 코드를 승인하고 프로필을 지정하면, 해당 권한 범위 내에서 Jarvis를 사용할 수 있습니다.
 
-> **공용 봇이 없습니다.** 데몬을 운영하는 사람(Owner)이 채널별로 자기 봇을 직접 만들어야 합니다 — 봇 username/토큰은 Owner마다 다릅니다.
-> - Telegram 봇 만드는 법: [11. Telegram 채널 설정](11-telegram-setup.md)
-> - Slack 봇 만드는 법: [10. Slack 채널 설정](10-slack-setup.md)
-> - Discord 봇 만드는 법: discord.com/developers/applications
+> **봇은 데몬당 1개로 충분합니다.** Owner(데몬 운영자) 1명이 채널별로 봇을 한 번만 만들면, 그 봇 1개로 본인과 모든 팀원이 동시에 사용합니다. Telegram chat_id / Slack user / Discord user ID 단위로 자동 식별·격리되므로 팀원 각자가 봇을 따로 만들 필요는 없습니다.
+>
+> 채널별 봇 생성 가이드 (Owner가 한 번만):
+> - Telegram: [11. Telegram 채널 설정](11-telegram-setup.md)
+> - Slack: [10. Slack 채널 설정](10-slack-setup.md)
+> - Discord: discord.com/developers/applications
 
 이 문서는 **봇이 이미 만들어져 있고 데몬이 돌고 있다는 전제**에서 페어링 흐름을 다룹니다.
 
@@ -58,11 +60,10 @@ jarvis doctor    # ✓ Telegram 토큰: @your_bot_username 확인
 
 ## 1단계: 팀원이 봇 username을 받음
 
-Owner가 만든 봇의 username을 팀원에게 공유합니다 (예: `@my_jarvis_bot`).
-**Owner마다 봇이 다르므로** 같은 회사 안에서도 데몬 운영자별로 봇이 분리됩니다.
+Owner가 만든 **봇 1개**의 username을 팀원에게 공유합니다 (예: `@my_jarvis_bot`). 같은 봇 1개로 모든 팀원이 페어링·사용 가능합니다.
 
 ```
-Owner → 팀원: "내 Jarvis 봇 username은 @my_jarvis_bot 이야"
+Owner → 팀원들: "Jarvis 봇 username은 @my_jarvis_bot 이야"
 ```
 
 ## 2단계: 팀원이 봇에 메시지 전송

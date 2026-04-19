@@ -56,7 +56,8 @@ jarvis ask "질문 내용"       # 한 번 질문
 
 ```bash
 # (B) 외부 채널(Telegram 등) 요청을 상시 받기 — 백그라운드 데몬 (선택)
-# ※ 공용 봇은 없습니다 — 본인 명의의 봇을 직접 만들어야 합니다.
+# ※ 봇 1개만 만들면 본인 + 모든 팀원이 같은 봇으로 사용 가능 (chat_id로 자동 격리).
+#   Anthropic 공용 봇은 없으므로 운영자가 한 번만 발급:
 #   Telegram: BotFather에서 생성    → docs/11-telegram-setup.md
 #   Slack:    api.slack.com/apps   → docs/10-slack-setup.md
 jarvis add-channel          # 채널 + 봇 토큰 설정 (최초 1회)
@@ -64,7 +65,7 @@ jarvis start                # 데몬 기동
 jarvis install              # 맥 부팅 시 자동 시작 (launchd)
 ```
 
-(A)와 (B)는 서로 간섭하지 않으며 **병행 사용 가능**합니다. Owner 본인은 터미널에서 `chat`을 쓰고, 동시에 데몬이 본인이 만든 봇을 통해 팀원 요청을 받아 처리하는 식으로 조합합니다.
+(A)와 (B)는 서로 간섭하지 않으며 **병행 사용 가능**합니다. Owner 본인은 터미널에서 `chat`을 쓰고, 동시에 데몬이 봇을 통해 팀원 요청을 받아 처리하는 식으로 조합합니다.
 
 ### 5. 새 프로젝트/프로필 추가
 
