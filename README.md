@@ -56,8 +56,8 @@ jarvis ask "질문 내용"       # 한 번 질문
 
 ```bash
 # (B) 외부 채널(Telegram 등) 요청을 상시 받기 — 백그라운드 데몬 (선택)
-# ※ 봇 1개만 만들면 본인 + 모든 팀원이 같은 봇으로 사용 가능 (chat_id로 자동 격리).
-#   Anthropic 공용 봇은 없으므로 운영자가 한 번만 발급:
+# ※ 사용할 플랫폼마다 봇 1개씩 발급 (Telegram만 쓰면 1개, Telegram+Slack이면 2개).
+#   각 봇 1개로 그 플랫폼의 본인 + 모든 팀원이 동시 사용 (user/chat ID로 자동 격리).
 #   Telegram: BotFather에서 생성    → docs/11-telegram-setup.md
 #   Slack:    api.slack.com/apps   → docs/10-slack-setup.md
 jarvis add-channel          # 채널 + 봇 토큰 설정 (최초 1회)

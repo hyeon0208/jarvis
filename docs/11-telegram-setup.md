@@ -166,7 +166,11 @@ jarvis_memory_stats
 
 ### Q. 그럼 "Owner마다 봇이 다르다"는 건 무슨 뜻이었나요?
 
-데몬을 **운영하는 사람**(보통 팀 리더/회사) 단위로 봇이 다릅니다. 예를 들어 A 회사가 자체 데몬을 돌리면 A 봇 1개로 A 팀원 전체가 사용, B 회사는 B 봇 1개로 B 팀원 전체가 사용 — A와 B는 별개. 같은 회사 안에서는 봇 1개로 모두 충분합니다.
+데몬을 **운영하는 조직/사람** 단위로 봇이 다릅니다. 예: A 회사가 자체 데몬을 돌리면 A의 Telegram 봇 1개로 A 팀원 전체가 사용, B 회사는 B의 Telegram 봇 1개로 B 팀원 전체가 사용 — A와 B는 별개. 같은 조직 안에서는 (한 플랫폼 기준) 봇 1개로 모두 충분합니다.
+
+### Q. Telegram + Slack을 둘 다 쓰면 봇이 2개인가요?
+
+네 — 플랫폼이 다르면 각 플랫폼에서 봇을 1개씩 만들어야 합니다. 예: Telegram + Slack 동시 운영 = Telegram 봇 1개 (BotFather) + Slack App 1개 (api.slack.com/apps). 데몬 1개가 두 봇 모두를 동시에 처리합니다 (`channels.yml`에서 둘 다 `enabled: true`).
 
 ### Q. 다른 사람이 만든 봇으로 페어링하면 안 되나요?
 
@@ -182,7 +186,7 @@ BotFather에서 `/setname` 또는 `/setusername` 명령으로 변경. 토큰은 
 
 ### Q. Slack/Discord와 동시에 쓸 수 있나요?
 
-네 — `channels.yml`에서 모두 `enabled: true`로 두면 데몬 하나가 모든 채널을 동시에 listening. user_id가 `telegram:NNN` / `slack:UXXX` / `discord:NNN`으로 자동 분리되어 메모리/대화도 채널별로 격리됩니다.
+네 — 각 플랫폼에서 봇을 따로 1개씩 발급해서 토큰을 등록한 뒤 `channels.yml`에서 모두 `enabled: true`로 두면, 데몬 1개가 모든 플랫폼을 동시에 listening합니다. 예: Telegram 봇 1개 + Slack App 1개 + Discord 봇 1개. user_id가 `telegram:NNN` / `slack:UXXX` / `discord:NNN`으로 자동 분리되어 메모리/대화도 플랫폼·유저별로 격리됩니다.
 
 ---
 

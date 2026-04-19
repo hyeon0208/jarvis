@@ -88,7 +88,9 @@ Claude Code를 재시작한 후:
 
 ### 4단계 (선택): 외부 채널 연결
 
-본인 또는 팀원이 Telegram/Slack/Discord 등으로 Jarvis에 접근하게 하려면 데몬 운영자가 **봇을 한 번만** 생성하면 됩니다 (Anthropic이 운영하는 공용 봇은 없으므로 직접 발급). 그 봇 1개로 본인과 팀원 모두가 동시에 사용 가능합니다 — 메시지는 채널의 user/chat ID 단위로 자동 식별·격리됩니다.
+본인/팀원이 Telegram/Slack/Discord로 Jarvis에 접근하게 하려면 데몬 운영자가 사용할 **각 플랫폼에서 봇을 1개씩** 발급합니다 (Anthropic 공용 봇은 없으므로 직접 발급). 한 플랫폼 안에서는 그 봇 1개로 본인 + 모든 팀원이 동시 사용 가능 — 메시지는 채널의 user/chat ID 단위로 자동 식별·격리됩니다.
+
+예: Telegram만 쓰면 Telegram 봇 1개. Telegram + Slack을 같이 쓰면 Telegram 봇 1개 + Slack App 1개 (총 2개), 데몬 1개가 둘 다 동시 처리.
 
 채널별 설정 가이드:
 

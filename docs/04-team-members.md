@@ -5,9 +5,9 @@
 팀원은 **Owner가 만든 채널 봇에 DM**을 보내 Jarvis를 사용합니다.
 Owner가 페어링 코드를 승인하고 프로필을 지정하면, 해당 권한 범위 내에서 Jarvis를 사용할 수 있습니다.
 
-> **봇은 데몬당 1개로 충분합니다.** Owner(데몬 운영자) 1명이 채널별로 봇을 한 번만 만들면, 그 봇 1개로 본인과 모든 팀원이 동시에 사용합니다. Telegram chat_id / Slack user / Discord user ID 단위로 자동 식별·격리되므로 팀원 각자가 봇을 따로 만들 필요는 없습니다.
+> **봇은 사용할 플랫폼당 1개로 충분합니다.** Telegram만 쓰면 Telegram 봇 1개, Slack도 쓰려면 Slack 봇 1개를 추가로 만드는 방식입니다 (예: Telegram + Slack을 같이 쓰면 봇 총 2개). 같은 플랫폼 안에서는 봇 1개로 본인과 모든 팀원이 동시에 사용합니다 — Telegram chat_id / Slack user / Discord user ID 단위로 자동 식별·격리되므로 팀원 각자가 봇을 따로 만들 필요는 없습니다.
 >
-> 채널별 봇 생성 가이드 (Owner가 한 번만):
+> 플랫폼별 봇 생성 가이드 (Owner가 한 번만):
 > - Telegram: [11. Telegram 채널 설정](11-telegram-setup.md)
 > - Slack: [10. Slack 채널 설정](10-slack-setup.md)
 > - Discord: discord.com/developers/applications
