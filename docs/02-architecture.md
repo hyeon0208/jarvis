@@ -119,9 +119,11 @@ jarvis-gateway (채널 게이트웨이)
 
 ```
 1층: DM 페어링         — 승인된 유저만 접근
-2층: 프로필 권한        — 유저별 도구 제한 (--allowedTools)
-3층: 비용 제한          — 요청당 $0.5 제한 (owner 제외)
-4층: Docker 샌드박스    — 파일시스템/네트워크 격리 (선택)
+2층: 프로필 권한        — 유저별 도구 제한 (--allowedTools/--disallowedTools)
+3층: 디렉토리 격리      — cwd 샌드박스(~/.jarvis/sandboxes/{user}) + --add-dir 화이트리스트
+                         · cwd가 빈 디렉토리이므로 Read 도구가 홈/시스템 자동 탐색 불가
+                         · from_projects 키워드로 projects.jsonc의 allowed_profiles 매핑
+4층: 비용 제한          — 요청당 $0.5 제한 (owner 제외)
 5층: 시간 제한          — 프로필별 타임아웃 (1~10분)
 6층: 메모리 격리        — JARVIS_USER_ID 환경변수로 채널/유저별 자동 분리
                          (자세히는 06-memory.md의 "사용자별 메모리 격리")

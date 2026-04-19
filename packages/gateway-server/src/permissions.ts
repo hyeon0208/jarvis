@@ -129,6 +129,7 @@ export function buildClaudeArgs(
   }
 
   // 디렉토리 제한
+  // 격리 원칙: --add-dir로 명시되지 않은 디렉토리는 cwd 샌드박스(/tmp/jarvis-sandbox-*)밖에 없음
   if (options?.projectDir) {
     args.push("--add-dir", options.projectDir);
   } else if (claude?.add_dirs) {
@@ -136,6 +137,15 @@ export function buildClaudeArgs(
       if (dir === "from_projects") {
         // projects.jsonc에서 해당 프로필 접근 가능 경로 로드
         const projectDirs = getAccessibleDirs(profileName);
+        if (projectDirs.length === 0) {
+          // 0개 매치 = 의도된 격리(observer 등) 또는 설정 누락
+          // 데몬 cwd 샌드박스가 격리를 보장하므로 안전하지만, 가시화를 위해 stderr로 알림
+          console.error(
+            `[permissions] WARN: profile=${profileName} add_dirs=from_projects → 0 매치. ` +
+            `projects.jsonc의 allowed_profiles에 "${profileName}"가 포함된 프로젝트가 없습니다. ` +
+            `샌드박스 cwd 외 디렉토리 접근 불가 (의도된 동작이면 무시).`,
+          );
+        }
         for (const d of projectDirs) {
           args.push("--add-dir", d);
         }

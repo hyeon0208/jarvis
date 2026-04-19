@@ -397,6 +397,99 @@ function checkMcpRegistration(): CheckResult[] {
   }
 }
 
+/**
+ * 프로필별 접근 가능 디렉토리 가시화 + 위험 패턴 탐지
+ *
+ * 검증:
+ * - add_dirs에 상대 경로(test, src 등)가 있으면 WARN — cwd 의존이라 위험
+ * - from_projects가 있는데 projects.jsonc 매치가 0개면 INFO/WARN
+ *   (의도된 격리일 수 있어 실패는 아니지만 가시화)
+ * - Read/Glob/Grep 권한이 있는데 add_dirs가 모두 비면 WARN
+ *   (cwd 샌드박스 외 접근 불가하므로 의도와 다를 수 있음)
+ */
+function checkProfileDirectories(): CheckResult[] {
+  if (!existsSync(PATHS.profilesYml)) return [];
+  try {
+    const profilesDoc = loadProfilesYml();
+    const projectsDoc = existsSync(PATHS.projectsJsonc)
+      ? loadProjectsJsonc()
+      : { projects: {} };
+
+    const results: CheckResult[] = [];
+
+    for (const [name, profile] of Object.entries(profilesDoc.profiles ?? {})) {
+      const claude = (profile as Record<string, unknown>).claude as
+        | Record<string, unknown>
+        | undefined;
+      if (!claude) continue;
+
+      // owner는 skip_permissions로 우회되므로 검사 제외
+      if (claude.skip_permissions) continue;
+
+      const addDirs = (claude.add_dirs as string[] | undefined) ?? [];
+      const allowedTools = (claude.allowed_tools as string[] | undefined) ?? [];
+      const hasReadTool = allowedTools.some(
+        (t) => t === "Read" || t === "Glob" || t === "Grep",
+      );
+
+      // 1. 상대 경로 검출
+      const relativePaths = addDirs.filter(
+        (d) => d !== "from_projects" && !d.startsWith("/") && !d.startsWith("~"),
+      );
+      if (relativePaths.length > 0) {
+        results.push({
+          name: `profile[${name}].add_dirs`,
+          severity: "WARN",
+          message: `상대 경로: ${relativePaths.join(", ")}`,
+          hint: "상대 경로는 cwd 의존이라 격리가 무의미. 절대 경로 또는 from_projects 사용 권장",
+        });
+      }
+
+      // 2. from_projects 매치 검사
+      if (addDirs.includes("from_projects")) {
+        const matched: string[] = [];
+        for (const [key, project] of Object.entries(projectsDoc.projects ?? {})) {
+          if ((project.allowed_profiles ?? []).includes(name)) {
+            matched.push(`${key} (${project.path})`);
+          }
+        }
+        if (matched.length === 0) {
+          results.push({
+            name: `profile[${name}].from_projects`,
+            severity: hasReadTool ? "WARN" : "OK",
+            message: hasReadTool
+              ? `매치 0개 — Read 권한 있지만 접근 가능 디렉토리 없음 (cwd 샌드박스만)`
+              : `매치 0개 (Read 권한도 없으므로 의도된 격리로 간주)`,
+            hint: hasReadTool
+              ? `projects.jsonc에 "${name}"을 allowed_profiles에 추가하거나, 의도라면 무시`
+              : undefined,
+          });
+        } else {
+          results.push({
+            name: `profile[${name}].from_projects`,
+            severity: "OK",
+            message: `매치 ${matched.length}개: ${matched.join(", ")}`,
+          });
+        }
+      }
+
+      // 3. Read 도구가 있는데 add_dirs가 비어있는 경우
+      if (hasReadTool && addDirs.length === 0) {
+        results.push({
+          name: `profile[${name}].격리 검토`,
+          severity: "WARN",
+          message: "Read/Glob/Grep 권한 있으나 add_dirs 비어있음",
+          hint: "cwd 샌드박스 외 접근 불가 (의도된 동작이면 무시). reviewer/developer는 from_projects 권장",
+        });
+      }
+    }
+
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 function checkMemoryUsage(): CheckResult {
   if (!existsSync(PATHS.memoryDb)) {
     return { name: "메모리 DB 크기", severity: "OK", message: "DB 미생성 (0 MB)" };
@@ -462,6 +555,7 @@ export async function runAllChecks(opts: DiagnosticsOptions = {}): Promise<Diagn
   results.push(checkProjectsJsonc());
   results.push(...checkProjectsSchema());
   results.push(...checkChannelTokens());
+  results.push(...checkProfileDirectories());
 
   if (!opts.skipNetwork) {
     results.push(...(await checkTokensLive()));
@@ -487,6 +581,7 @@ export function runStartupChecks(): DiagnosticsSummary {
     checkProjectsJsonc(),
     ...checkProjectsSchema(),
     ...checkChannelTokens(),
+    ...checkProfileDirectories(),
     checkMemoryUsage(),
   ];
 

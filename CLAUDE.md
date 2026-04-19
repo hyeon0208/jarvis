@@ -45,6 +45,19 @@
 
 ---
 
+## 3.5 격리 모델 (보안 핵심)
+
+데몬이 외부 채널 요청을 처리할 때 `claude` 자식을 spawn하며 다음 격리를 강제합니다:
+
+| 격리 | 메커니즘 | 코드 |
+|------|---------|------|
+| 메모리 격리 | `JARVIS_USER_ID` 환경변수 → MCP 서버 자동 fallback | `packages/memory-server/src/memory-config.ts:resolveUserId` |
+| 파일시스템 격리 | `cwd: ~/.jarvis/sandboxes/{safe-user-id}/` (빈 디렉토리) | `packages/gateway-server/src/daemon.ts:ensureSandbox` |
+| 디렉토리 화이트리스트 | `--add-dir`는 `add_dirs: [from_projects]`로 명시한 곳만 | `packages/gateway-server/src/permissions.ts:buildClaudeArgs` |
+| 도구 권한 | `allowed_tools`/`disallowed_tools` (예: observer는 Read 자체 없음) | `config/profiles.yml` |
+
+`profiles.yml`의 `add_dirs: [from_projects]`는 `projects.jsonc`에서 해당 프로필이 `allowed_profiles`에 포함된 프로젝트만 자동 추가합니다. 매치 0개 = cwd 샌드박스만 접근 가능 (의도된 격리이거나 설정 누락 — `jarvis doctor`로 확인).
+
 ## 4. 절대 규칙 (사용자 명시)
 
 ### 4.1 코드/설정 변경 시 docs 동기화 필수

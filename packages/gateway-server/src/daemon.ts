@@ -25,6 +25,25 @@ const LOG_FILE = join(JARVIS_DIR, "daemon.log");
 const PID_FILE = join(JARVIS_DIR, "daemon.pid");
 const CONFIG_FILE = join(process.env.HOME ?? "~", "jarvis", ".env");
 const PROJECT_DIR = process.env.JARVIS_PROJECT_DIR ?? ""; // 프로젝트 디렉토리 (설정 시 worktree 활성화)
+const SANDBOX_ROOT = join(JARVIS_DIR, "sandboxes"); // 유저별 cwd 샌드박스 (~/.jarvis/sandboxes/)
+
+/**
+ * 유저별 빈 샌드박스 디렉토리를 보장하고 절대 경로를 반환합니다.
+ *
+ * 목적: claude 자식 프로세스의 cwd를 빈 디렉토리로 강제해서
+ *       Read 도구가 상대 경로/cwd 하위 탐색으로 홈/시스템 파일에 접근하지 못하게 함.
+ *       --add-dir로 명시적으로 화이트리스트된 디렉토리만 접근 가능.
+ *
+ * - userId의 위험 문자(/, :, .., 등)는 _ 로 sanitize
+ * - 디렉토리는 비어 있어야 함 (절대 다른 파일 두지 말 것)
+ * - 위치: ~/.jarvis/sandboxes/{safe-id}/
+ */
+function ensureSandbox(userId: string): string {
+  const safe = userId.replace(/[^a-zA-Z0-9_-]/g, "_") || "anonymous";
+  const dir = join(SANDBOX_ROOT, safe);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  return dir;
+}
 
 // --- 로깅 ---
 function log(level: string, message: string): void {
@@ -91,9 +110,17 @@ async function executeWithClaude(
     // 모두 이 환경변수를 상속받아 자동으로 올바른 유저 컨텍스트로 동작합니다.
     // (LLM 자율성 의존 X, OS 프로세스 환경변수로 100% 보장)
     const channelName = userId.includes(":") ? userId.split(":")[0] : "owner";
+
+    // cwd 샌드박스 강제 — 핵심 격리 장치
+    // workDir(예: /dev worktree)이 명시되면 그쪽, 아니면 유저별 빈 샌드박스
+    // → Read의 기본 cwd가 빈 디렉토리이므로 홈/시스템 파일 자동 접근 차단
+    // → 접근 가능한 디렉토리는 오로지 buildClaudeArgs가 --add-dir로 명시한 것뿐
+    const cwdDir = workDir ?? ensureSandbox(userId);
+    log("INFO", `cwd 샌드박스: ${cwdDir}`);
+
     const child = spawn("claude", args, {
       stdio: ["pipe", "pipe", "pipe"],
-      cwd: workDir, // worktree 디렉토리에서 실행
+      cwd: cwdDir,
       timeout: 5 * 60 * 1000,
       env: {
         ...process.env,

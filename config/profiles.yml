@@ -117,10 +117,13 @@ profiles:
     timeout: 300
 
   # ──────────────────────────────────────
-  # reviewer: 읽기 전용 + git 조회
+  # reviewer: 코드 읽기/리뷰 + git 조회 (격리: from_projects)
+  #   - Read/Glob/Grep는 본업이라 유지하되, 접근 가능 디렉토리는 projects.jsonc로 화이트리스트
+  #   - allowed_profiles에 "reviewer"가 포함된 프로젝트 경로만 보임
+  #   - 그 외 디렉토리는 데몬 cwd 샌드박스(/tmp/jarvis-sandbox-*)뿐 → 홈 노출 X
   # ──────────────────────────────────────
   reviewer:
-    description: "리뷰어 — 읽기 전용, git 조회"
+    description: "리뷰어 — 읽기 전용, git 조회 (projects.jsonc 화이트리스트 디렉토리만)"
     claude:
       effort: high  # 코드 리뷰/분석은 깊이 사고가 필요
       allowed_tools:
@@ -151,7 +154,7 @@ profiles:
         - "Bash(osascript:*)"
 
       add_dirs:
-        - from_projects
+        - from_projects   # projects.jsonc에서 reviewer가 allowed_profiles에 포함된 프로젝트만
 
       system_prompt: |
         읽기 전용 모드입니다. 코드를 수정하지 마세요.
@@ -160,16 +163,18 @@ profiles:
     timeout: 120
 
   # ──────────────────────────────────────
-  # observer: 질문/검색만
+  # observer: 질문/검색만 (격리: 로컬 파일 접근 자체 차단)
+  #   - Read/Glob/Grep 제거 → 로컬 파일 읽기 불가 (정의가 "질문/검색만"이므로 본질에 맞음)
+  #   - WebSearch/WebFetch + 메모리 MCP로만 답변
+  #   - add_dirs: from_projects (보호 장치 — 향후 Read 추가 시 자동 격리)
   # ──────────────────────────────────────
   observer:
-    description: "옵저버 — 질문/검색만"
+    description: "옵저버 — 질문/검색만 (로컬 파일 접근 X)"
     claude:
       effort: low  # 단순 질문은 빠른 응답이 우선
       allowed_tools:
-        - Read
-        - Glob
-        - Grep
+        # ※ Read/Glob/Grep는 의도적으로 제외 — observer는 "질문/검색만"
+        #   로컬 파일 정보가 필요하면 reviewer/developer 프로필을 사용하세요.
         - WebSearch
         - WebFetch
         - "mcp__jarvis-memory__jarvis_memory_recall"
@@ -188,10 +193,10 @@ profiles:
         - "Bash(osascript:*)"
 
       add_dirs:
-        - from_projects
+        - from_projects   # 보호 장치 — observer가 포함된 프로젝트만 (현재 0개)
 
       system_prompt: |
-        읽기 전용 모드입니다. 코드를 수정하거나 명령을 실행하지 마세요.
-        질문에 답변만 해주세요.
+        읽기 전용 모드입니다. 코드를 수정하거나 로컬 파일을 읽을 수 없습니다.
+        질문에는 메모리(jarvis_memory_recall)와 웹 검색(WebSearch/WebFetch)으로만 답변하세요.
 
     timeout: 60

@@ -128,11 +128,23 @@ owner:
 
 기본 예시의 대략적인 범위:
 
-| 프로필 | 범위 요약 |
-|--------|---------|
-| `developer` | 프로젝트 내 코드 읽기/쓰기, git add/commit/push, 빌드/테스트 실행 |
-| `reviewer` | 읽기만 + git 조회 명령 |
-| `observer` | 읽기 + 웹 검색만, 명령 실행 불가 |
+| 프로필 | 범위 요약 | 디렉토리 격리 |
+|--------|---------|------------|
+| `developer` | 프로젝트 내 코드 읽기/쓰기, git add/commit/push, 빌드/테스트 실행 | `from_projects` (developer가 allowed_profiles에 포함된 프로젝트만) |
+| `reviewer` | 코드 읽기 + git 조회 (수정 불가) | `from_projects` (reviewer가 포함된 프로젝트만) |
+| `observer` | **로컬 파일 접근 X** — WebSearch/WebFetch + 메모리 검색만 | 디렉토리 접근 없음 (cwd 샌드박스만) |
+
+> **observer는 의도적으로 `Read`/`Glob`/`Grep`이 제거**되어 있습니다. 정의가 "질문/검색만"이므로 로컬 파일을 보지 못해야 합니다. 코드를 봐야 할 일이 있으면 `reviewer` 프로필을 부여하세요.
+
+### 격리 메커니즘 한눈에
+
+각 채널 요청은 `claude` 자식 프로세스로 spawn되며, 다음 3중 격리가 적용됩니다:
+
+1. **cwd 샌드박스** — `~/.jarvis/sandboxes/{safe-user-id}/` (빈 디렉토리). Read 도구가 cwd 하위를 탐색해도 아무것도 없음 → 홈/시스템 자동 차단.
+2. **`--add-dir` 화이트리스트** — `add_dirs: [from_projects]`로 명시한 디렉토리만 추가 접근 가능. `projects.jsonc`의 `allowed_profiles`로 프로필별 권한 결정.
+3. **도구 제한** — `allowed_tools`/`disallowed_tools`로 `Read`/`Write`/`Bash` 등 가능 여부 자체를 제어.
+
+자세히: [02. 아키텍처 — 보안 계층](02-architecture.md#보안-계층)
 
 실제 포함된 정확한 도구 목록은 현재 `config/profiles.yml` 파일이 **단일 진실 공급원(single source of truth)** 입니다. 아래 명령으로 확인하세요:
 

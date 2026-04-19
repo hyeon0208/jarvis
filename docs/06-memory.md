@@ -37,6 +37,8 @@ Jarvis는 **3계층 메모리**로 세션 간 맥락을 유지합니다.
    - 데몬이 `permissions.ts:buildPersonalityPrompt`로 user_id 정보를 시스템 프롬프트에 포함
    - Claude가 명시 인자를 사용해도 정확한 값을 쓰도록
 
+> **메모리 격리와 별개로, 파일시스템 격리도 같은 user_id 기반으로 동작합니다.** 데몬은 spawn 시 `cwd: ~/.jarvis/sandboxes/{safe-user-id}/` (빈 디렉토리)를 강제해서 Read 도구가 홈/시스템을 탐색하지 못하게 합니다. 자세히는 [04. 팀원 — 격리 메커니즘](04-team-members.md#격리-메커니즘-한눈에).
+
 ### 격리 범위 (메모리 종류별)
 
 | 메모리 | user_id 분리? | 이유 |

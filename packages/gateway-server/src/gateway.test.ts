@@ -19,10 +19,12 @@ describe("Profiles (YAML)", () => {
     expect(checkPermission("owner", "cron")).toBe(true);
   });
 
-  test("Given observer 프로필 When 쓰기 권한 체크 Then 거부", async () => {
+  test("Given observer 프로필 When 권한 체크 Then 읽기/쓰기/실행 모두 거부 (질문/검색만)", async () => {
     const { checkPermission } = await import("./profiles.js");
 
-    expect(checkPermission("observer", "read")).toBe(true);
+    // observer는 정의상 "질문/검색만" — 로컬 파일 read 권한도 없음
+    // (WebSearch/WebFetch + 메모리 MCP만 허용)
+    expect(checkPermission("observer", "read")).toBe(false);
     expect(checkPermission("observer", "write")).toBe(false);
     expect(checkPermission("observer", "execute")).toBe(false);
   });
@@ -65,15 +67,21 @@ describe("Claude Args (YAML)", () => {
     expect(args).not.toContain("--dangerously-skip-permissions");
   });
 
-  test("Given observer When buildClaudeArgs Then Write 미포함", async () => {
+  test("Given observer When buildClaudeArgs Then 로컬 파일 도구 모두 미포함", async () => {
     const { buildClaudeArgs } = await import("./permissions.js");
     const args = buildClaudeArgs("observer", "test prompt");
 
     const allowedIdx = args.indexOf("--allowedTools");
     const tools = args[allowedIdx + 1];
+    // observer는 로컬 파일에 접근 불가 — Read/Glob/Grep도 모두 제외
     expect(tools).not.toContain("Write");
     expect(tools).not.toContain("Edit");
-    expect(tools).toContain("Read");
+    expect(tools).not.toContain("Read");
+    expect(tools).not.toContain("Glob");
+    expect(tools).not.toContain("Grep");
+    // 대신 WebSearch와 메모리 도구로만 답변
+    expect(tools).toContain("WebSearch");
+    expect(tools).toContain("jarvis_memory_recall");
   });
 });
 
