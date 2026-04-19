@@ -137,6 +137,20 @@ SYSTEM_PROMPT="당신은 Jarvis입니다. 사용자의 개인화된 AI 에이전
 
 항상 한국어로 응답하세요."
 
+build_owner_prompt() {
+  # owner의 personality(말투/언어/호칭)를 시스템 프롬프트에 합성
+  local personality_prompt=""
+  if command -v bun >/dev/null 2>&1; then
+    personality_prompt=$(bun run "$HOME/jarvis/scripts/owner-personality-prompt.ts" 2>/dev/null || true)
+  fi
+
+  if [ -n "$personality_prompt" ]; then
+    printf '%s\n\n[Owner Personality]\n%s' "$SYSTEM_PROMPT" "$personality_prompt"
+  else
+    printf '%s' "$SYSTEM_PROMPT"
+  fi
+}
+
 cmd_chat() {
   echo -e "${GREEN}Jarvis 대화 모드 시작...${NC}"
   echo -e "종료: Ctrl+C 또는 /exit"
@@ -147,9 +161,12 @@ cmd_chat() {
     bun run "$HOME/jarvis/scripts/doctor.ts" --quick --silent-ok 2>/dev/null || true
   fi
 
-  # Owner 로컬 세션 — user_id를 owner로 명시 (메모리 격리)
+  # Owner 로컬 세션 — user_id 격리 + owner.json의 personality 자동 반영
+  local prompt
+  prompt=$(build_owner_prompt)
+
   JARVIS_USER_ID="owner" JARVIS_CHANNEL="terminal" claude \
-    --append-system-prompt "$SYSTEM_PROMPT" \
+    --append-system-prompt "$prompt" \
     --name "Jarvis"
 }
 
@@ -160,8 +177,11 @@ cmd_ask() {
     return 1
   fi
 
+  local sys_prompt
+  sys_prompt=$(build_owner_prompt)
+
   JARVIS_USER_ID="owner" JARVIS_CHANNEL="terminal" claude -p "$prompt" \
-    --append-system-prompt "$SYSTEM_PROMPT"
+    --append-system-prompt "$sys_prompt"
 }
 
 PLIST_SRC="$HOME/jarvis/config/com.jarvis.daemon.plist"

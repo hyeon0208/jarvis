@@ -208,6 +208,7 @@ async function checkTokensLive(): Promise<CheckResult[]> {
   const env = loadEnvFile();
   const results: CheckResult[] = [];
 
+  // Telegram — getMe
   const telegramToken = env.TELEGRAM_BOT_TOKEN;
   if (telegramToken) {
     try {
@@ -230,6 +231,100 @@ async function checkTokensLive(): Promise<CheckResult[]> {
     } catch {
       results.push({
         name: "Telegram 토큰",
+        severity: "WARN",
+        message: "네트워크 오류로 검증 불가",
+      });
+    }
+  }
+
+  // Slack — auth.test (Bot Token + App Token)
+  const slackBotToken = env.SLACK_BOT_TOKEN;
+  if (slackBotToken) {
+    try {
+      const res = await fetch("https://slack.com/api/auth.test", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${slackBotToken}` },
+      });
+      const data = (await res.json()) as {
+        ok: boolean;
+        team?: string;
+        user?: string;
+        error?: string;
+      };
+      if (data.ok) {
+        results.push({
+          name: "Slack Bot 토큰",
+          severity: "OK",
+          message: `${data.team ?? "?"} / ${data.user ?? "?"}`,
+        });
+      } else {
+        results.push({
+          name: "Slack Bot 토큰",
+          severity: "FAIL",
+          message: `인증 실패: ${data.error ?? "unknown"}`,
+          hint: "xoxb-... 토큰 재발급 또는 OAuth Scope 점검 (chat:write, im:history 등)",
+        });
+      }
+    } catch {
+      results.push({
+        name: "Slack Bot 토큰",
+        severity: "WARN",
+        message: "네트워크 오류로 검증 불가",
+      });
+    }
+
+    // App Token은 별도 API 검증이 까다로워 (Socket Mode 연결 시도가 필요)
+    // 존재 여부만 빠르게 확인
+    if (!env.SLACK_APP_TOKEN) {
+      results.push({
+        name: "Slack App 토큰",
+        severity: "WARN",
+        message: "SLACK_APP_TOKEN 미설정 — Socket Mode 동작 불가",
+        hint: "api.slack.com/apps → Socket Mode → xapp- 토큰 발급 후 .env에 추가",
+      });
+    } else if (!env.SLACK_APP_TOKEN.startsWith("xapp-")) {
+      results.push({
+        name: "Slack App 토큰",
+        severity: "FAIL",
+        message: "SLACK_APP_TOKEN 형식 오류 (xapp- 으로 시작해야 함)",
+      });
+    } else {
+      results.push({
+        name: "Slack App 토큰",
+        severity: "OK",
+        message: "xapp- 형식 (실제 연결은 데몬 시작 시 검증)",
+      });
+    }
+  }
+
+  // Discord — /users/@me
+  const discordToken = env.DISCORD_BOT_TOKEN;
+  if (discordToken) {
+    try {
+      const res = await fetch("https://discord.com/api/v10/users/@me", {
+        headers: { Authorization: `Bot ${discordToken}` },
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { username?: string; discriminator?: string };
+        const tag = data.discriminator && data.discriminator !== "0"
+          ? `${data.username}#${data.discriminator}`
+          : data.username ?? "?";
+        results.push({
+          name: "Discord 토큰",
+          severity: "OK",
+          message: tag,
+        });
+      } else {
+        results.push({
+          name: "Discord 토큰",
+          severity: "FAIL",
+          message: `인증 실패 (HTTP ${res.status})`,
+          hint: "discord.com/developers → Bot → Reset Token",
+        });
+      }
+    } catch {
+      results.push({
+        name: "Discord 토큰",
         severity: "WARN",
         message: "네트워크 오류로 검증 불가",
       });
