@@ -293,6 +293,7 @@ function truncate(text: string): string {
 
 import { createEnabledAdapters } from "./adapters/registry.js";
 import type { AdapterIncoming, ChannelAdapter } from "./adapters/types.js";
+import { startCronRunner } from "./cron-runner.js";
 
 const TELEGRAM_COMMANDS = [
   { command: "dev", description: "개발 워크플로우 시작 (/dev 작업내용)" },
@@ -376,11 +377,21 @@ async function main(): Promise<void> {
   // 어댑터 시스템 시작
   await startAdapters();
 
+  // Cron runner 시작 — 모든 user의 cron_jobs를 1분 간격으로 체크
+  const stopCronRunner = startCronRunner({
+    adapters: activeAdapters,
+    execute: async ({ prompt, userId, profile, userName, personality }) => {
+      return executeWithClaude(prompt, profile, userId, personality, userName);
+    },
+    log,
+  });
+
   log("INFO", "Jarvis Daemon 대기 중...");
 
   // 종료 시그널 핸들링
   const cleanup = async () => {
     log("INFO", "=== Jarvis Daemon 종료 ===");
+    stopCronRunner();
     await stopAdapters();
     try {
       const { unlinkSync } = require("node:fs");

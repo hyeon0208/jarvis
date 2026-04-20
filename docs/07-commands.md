@@ -157,6 +157,8 @@ Telegram에서 `/`를 입력하면 자동완성 메뉴가 표시됩니다.
 | `/cron list` | 크론잡 목록 | 전체 |
 | `/cron delete {id}` | 크론잡 삭제 | 전체 |
 
+**실행 메커니즘**: 데몬이 1분 간격으로 모든 유저의 `cron_jobs`를 스캔 → 스케줄 매칭 + `enabled: true` 항목을 `claude -p`로 실행 → 응답을 해당 user의 채널로 자동 전송. 구현: `packages/gateway-server/src/cron-runner.ts` ([06. 메모리 § 단기 컨텍스트](06-memory.md)와 독립적인 별도 기능).
+
 ### 일반 메시지
 
 커맨드가 아닌 일반 메시지는 **AI 질문**으로 처리됩니다:

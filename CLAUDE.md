@@ -127,6 +127,7 @@ jarvis user ls | show | profile | rename | rm
 | Dreaming 엔진 | `packages/memory-server/src/dreaming.ts` |
 | 게이트웨이 MCP + 데몬 | `packages/gateway-server/src/{index,daemon,router,permissions,auth,workflow}.ts` |
 | 채널 어댑터 | `packages/gateway-server/src/adapters/{telegram,discord,slack,webhook}.ts` |
+| Cron 실행 엔진 | `packages/gateway-server/src/cron-runner.ts` (1분 틱, 5-field cron 매칭) |
 | Claude Code 훅 | `hooks/{intent-gate,auto-memory,skill-nudge,dreaming-cron}.js` |
 | 진단 | `scripts/lib/diagnostics.ts` (+ `scripts/doctor.ts`) |
 | 설정 CRUD | `scripts/lib/config.ts` |

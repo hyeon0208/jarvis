@@ -47,6 +47,10 @@ jarvis uninstall    # 해제
 ## 데몬이 하는 일
 
 ```
+매 1분마다 (cron runner):
+  - 모든 유저의 cron_jobs를 스캔 → 스케줄 매치 + enabled인 job 실행
+  - 응답을 해당 user의 채널로 자동 전송 (중복 실행 방지: last_run_at 추적)
+
 매 1초마다 (Telegram polling, Slack/Discord는 Socket Mode/WebSocket):
   1. 채널 API에 "새 메시지 있어?" 물어봄
   2. 메시지가 있으면:
