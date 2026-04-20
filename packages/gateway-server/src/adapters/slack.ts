@@ -75,9 +75,21 @@ export class SlackAdapter implements ChannelAdapter {
           meta: { is_dm: true },
         };
 
-        const response = await onMessage(incoming);
-        if (response) {
-          await say(response).catch(() => { /* ignore */ });
+        try {
+          const response = await onMessage(incoming);
+          if (response) {
+            await say(response).catch((err: unknown) =>
+              console.error(
+                `[slack] DM say 실패 (user=${message.user}):`,
+                err instanceof Error ? err.message : err,
+              ),
+            );
+          }
+        } catch (err) {
+          console.error(
+            `[slack] DM handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"):`,
+            err instanceof Error ? (err.stack ?? err.message) : err,
+          );
         }
       });
     }
@@ -98,13 +110,25 @@ export class SlackAdapter implements ChannelAdapter {
           meta: { is_dm: false, thread_ts: event.thread_ts ?? event.ts },
         };
 
-        const response = await onMessage(incoming);
-        if (response) {
-          // 스레드로 답변
-          await say({
-            text: response,
-            thread_ts: this.threadReplies ? (event.thread_ts ?? event.ts) : undefined,
-          }).catch(() => { /* ignore */ });
+        try {
+          const response = await onMessage(incoming);
+          if (response) {
+            // 스레드로 답변
+            await say({
+              text: response,
+              thread_ts: this.threadReplies ? (event.thread_ts ?? event.ts) : undefined,
+            }).catch((err: unknown) =>
+              console.error(
+                `[slack] mention say 실패 (user=${event.user}):`,
+                err instanceof Error ? err.message : err,
+              ),
+            );
+          }
+        } catch (err) {
+          console.error(
+            `[slack] mention handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"):`,
+            err instanceof Error ? (err.stack ?? err.message) : err,
+          );
         }
       });
     }
@@ -118,7 +142,12 @@ export class SlackAdapter implements ChannelAdapter {
       channel: out.chat_id,
       text: out.message,
       ...(out.reply_to ? { thread_ts: out.reply_to } : {}),
-    }).catch(() => { /* ignore */ });
+    }).catch((err: unknown) =>
+      console.error(
+        `[slack] send 실패 (channel=${out.chat_id}):`,
+        err instanceof Error ? err.message : err,
+      ),
+    );
   }
 
   async stop(): Promise<void> {

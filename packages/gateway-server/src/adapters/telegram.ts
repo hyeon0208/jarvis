@@ -121,13 +121,26 @@ export class TelegramAdapter implements ChannelAdapter {
       };
 
       // 비동기로 처리 (다음 폴링 차단하지 않음)
+      // 에러를 조용히 삼키면 디버깅이 불가능해지므로 stderr로 로그 남김
       onMessage(incoming)
         .then(async (response) => {
           if (response) {
-            await this.send({ chat_id: incoming.chat_id!, message: response });
+            try {
+              await this.send({ chat_id: incoming.chat_id!, message: response });
+            } catch (err) {
+              console.error(
+                `[telegram] send 실패 (chat_id=${incoming.chat_id}):`,
+                err instanceof Error ? err.message : err,
+              );
+            }
           }
         })
-        .catch(() => { /* 응답 실패 무시 */ });
+        .catch((err) => {
+          console.error(
+            `[telegram] handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"):`,
+            err instanceof Error ? (err.stack ?? err.message) : err,
+          );
+        });
     }
   }
 }

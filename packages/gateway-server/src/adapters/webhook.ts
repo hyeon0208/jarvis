@@ -78,7 +78,12 @@ export class WebhookAdapter implements ChannelAdapter {
           message_id: out.reply_to,
           response: out.message,
         }),
-      }).catch(() => { /* ignore */ });
+      }).catch((err: unknown) =>
+        console.error(
+          `[webhook] callback POST 실패 (url=${out.chat_id}):`,
+          err instanceof Error ? err.message : err,
+        ),
+      );
     }
   }
 
@@ -136,12 +141,25 @@ export class WebhookAdapter implements ChannelAdapter {
             });
           }
         })
-        .catch(() => { /* ignore */ });
+        .catch((err) => {
+          console.error(
+            `[webhook] async handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"):`,
+            err instanceof Error ? (err.stack ?? err.message) : err,
+          );
+        });
       return Response.json({ status: "queued" }, { status: 202 });
     }
 
     // 동기 처리
-    const response = await this.onMessage!(incoming);
-    return Response.json({ response: response ?? "" });
+    try {
+      const response = await this.onMessage!(incoming);
+      return Response.json({ response: response ?? "" });
+    } catch (err) {
+      console.error(
+        `[webhook] sync handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"):`,
+        err instanceof Error ? (err.stack ?? err.message) : err,
+      );
+      return Response.json({ response: "", error: "internal error" }, { status: 500 });
+    }
   }
 }

@@ -80,10 +80,20 @@ export class DiscordAdapter implements ChannelAdapter {
       onMessage(incoming)
         .then(async (response) => {
           if (response) {
-            await message.reply(response).catch(() => { /* ignore */ });
+            await message.reply(response).catch((err: unknown) =>
+              console.error(
+                `[discord] reply 실패 (channel=${message.channelId}):`,
+                err instanceof Error ? err.message : err,
+              ),
+            );
           }
         })
-        .catch(() => { /* ignore */ });
+        .catch((err) => {
+          console.error(
+            `[discord] handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"):`,
+            err instanceof Error ? (err.stack ?? err.message) : err,
+          );
+        });
     });
 
     await this.client.login(this.token);
