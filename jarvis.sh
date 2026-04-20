@@ -269,5 +269,6 @@ case "${1:-}" in
     echo "  channel ls|enable|disable|token <name> [value]"
     echo "  user ls|show|profile|rename|rm <user_id>"
     echo "  cron list [user_id] | run <job_id> [--send]  cron_jobs 조회/수동 실행"
+    echo "  cron recipients <job_id> [add|remove|clear] <uid>...  브로드캐스트 수신자 관리"
     ;;
 esac

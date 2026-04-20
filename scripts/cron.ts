@@ -14,7 +14,7 @@
  *   last_run_at도 건드리지 않습니다 (테스트 용도).
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import {
@@ -200,6 +200,121 @@ async function cmdRun(jobId: string, opts: { send: boolean }): Promise<void> {
   }
 }
 
+// ============================================================
+// Recipients CRUD
+// ============================================================
+
+/**
+ * 주어진 jobId가 속한 user 파일에서 cron_jobs를 변경해 저장.
+ * 반환: { user, updatedJob } 또는 null (job 미존재)
+ */
+function mutateJob(
+  jobId: string,
+  mutator: (job: UserFile["cron_jobs"][number]) => void,
+): { userId: string; job: UserFile["cron_jobs"][number] } | null {
+  if (!existsSync(USERS_DIR)) return null;
+
+  for (const name of readdirSync(USERS_DIR)) {
+    if (!name.endsWith(".json")) continue;
+    const filePath = join(USERS_DIR, name);
+    try {
+      const data = JSON.parse(readFileSync(filePath, "utf-8")) as UserFile;
+      const job = (data.cron_jobs ?? []).find((j) => j.id === jobId);
+      if (!job) continue;
+
+      mutator(job);
+      writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n");
+      return { userId: data.user_id, job };
+    } catch {
+      // 개별 파일 실패는 무시하고 다음 파일로
+    }
+  }
+  return null;
+}
+
+function cmdRecipientsList(jobId: string): void {
+  const found = findJob(jobId);
+  if (!found) {
+    console.error(`${RED}job 못 찾음: ${jobId}${RESET}`);
+    process.exit(1);
+  }
+  const { user, job } = found;
+  const list = job.recipients ?? [];
+
+  console.log(`${GREEN}${job.id}${RESET} ${DIM}(owner: ${user.user_id})${RESET}`);
+  if (list.length === 0) {
+    console.log(`  ${DIM}recipients 미지정 → 기본값: [${user.user_id}] (소유자만)${RESET}`);
+    return;
+  }
+  console.log(`  recipients (${list.length}):`);
+  for (const r of list) {
+    const isOwner = r === user.user_id;
+    console.log(`    - ${r}${isOwner ? `  ${DIM}(owner)${RESET}` : ""}`);
+  }
+}
+
+function cmdRecipientsAdd(jobId: string, newIds: string[]): void {
+  if (newIds.length === 0) {
+    console.error(`${RED}추가할 user_id를 1개 이상 입력하세요${RESET}`);
+    process.exit(1);
+  }
+  for (const id of newIds) {
+    if (!id.includes(":")) {
+      console.error(`${RED}user_id 형식 오류: "${id}" — "{channel}:{external_id}" 형태여야 함${RESET}`);
+      process.exit(1);
+    }
+  }
+
+  const result = mutateJob(jobId, (job) => {
+    const set = new Set(job.recipients ?? []);
+    for (const id of newIds) set.add(id);
+    job.recipients = Array.from(set);
+  });
+
+  if (!result) {
+    console.error(`${RED}job 못 찾음: ${jobId}${RESET}`);
+    process.exit(1);
+  }
+  console.log(`${GREEN}✓ 추가됨${RESET} (${newIds.length}명): ${newIds.join(", ")}`);
+  console.log(`${DIM}현재 recipients: [${(result.job.recipients ?? []).join(", ")}]${RESET}`);
+}
+
+function cmdRecipientsRemove(jobId: string, targetIds: string[]): void {
+  if (targetIds.length === 0) {
+    console.error(`${RED}제거할 user_id를 1개 이상 입력하세요${RESET}`);
+    process.exit(1);
+  }
+
+  const result = mutateJob(jobId, (job) => {
+    const set = new Set(job.recipients ?? []);
+    for (const id of targetIds) set.delete(id);
+    job.recipients = Array.from(set);
+  });
+
+  if (!result) {
+    console.error(`${RED}job 못 찾음: ${jobId}${RESET}`);
+    process.exit(1);
+  }
+  const remaining = result.job.recipients ?? [];
+  console.log(`${GREEN}✓ 제거 요청 처리${RESET} (${targetIds.length}명): ${targetIds.join(", ")}`);
+  if (remaining.length === 0) {
+    console.log(`${DIM}recipients 빈 배열 → 다음 실행부터 소유자(${result.userId})에게만 전송${RESET}`);
+  } else {
+    console.log(`${DIM}현재 recipients (${remaining.length}): [${remaining.join(", ")}]${RESET}`);
+  }
+}
+
+function cmdRecipientsClear(jobId: string): void {
+  const result = mutateJob(jobId, (job) => {
+    delete job.recipients;
+  });
+  if (!result) {
+    console.error(`${RED}job 못 찾음: ${jobId}${RESET}`);
+    process.exit(1);
+  }
+  console.log(`${GREEN}✓ recipients 필드 제거됨${RESET} → 기본값(소유자 ${result.userId})으로 복귀`);
+}
+
 async function sendToChannel(userId: string, message: string): Promise<void> {
   const colonIdx = userId.indexOf(":");
   if (colonIdx < 0) {
@@ -234,9 +349,16 @@ async function sendToChannel(userId: string, message: string): Promise<void> {
 function printHelp(): void {
   console.log("jarvis cron — cron_jobs CLI");
   console.log("");
-  console.log("  jarvis cron list [user_id]        모든 cron_jobs 또는 특정 유저의 목록");
-  console.log("  jarvis cron run <job_id>          즉시 실행 (결과를 터미널에 출력)");
-  console.log("  jarvis cron run <job_id> --send   실행 + 해당 user 채널로도 전송");
+  console.log("  jarvis cron list [user_id]                       모든 cron_jobs 또는 특정 유저의 목록");
+  console.log("  jarvis cron run <job_id>                         즉시 실행 (결과를 터미널에 출력)");
+  console.log("  jarvis cron run <job_id> --send                  실행 + recipients 채널로 전송");
+  console.log("");
+  console.log("  jarvis cron recipients <job_id>                  브로드캐스트 수신자 목록");
+  console.log("  jarvis cron recipients <job_id> add <uid>...     수신자 추가 (여러 명 가능)");
+  console.log("  jarvis cron recipients <job_id> remove <uid>...  수신자 제거");
+  console.log("  jarvis cron recipients <job_id> clear            recipients 필드 제거 (소유자 기본값으로)");
+  console.log("");
+  console.log("  user_id 형식: {channel}:{external_id}  (예: telegram:1613476146, slack:U07ABC)");
 }
 
 async function main(): Promise<void> {
@@ -262,6 +384,36 @@ async function main(): Promise<void> {
     const send = rest.includes("--send");
     await cmdRun(jobId, { send });
     return;
+  }
+
+  if (cmd === "recipients") {
+    const jobId = rest[0];
+    const sub = rest[1];
+    if (!jobId) {
+      console.error(`${RED}job_id를 입력하세요${RESET}`);
+      printHelp();
+      process.exit(1);
+    }
+    if (!sub) {
+      cmdRecipientsList(jobId);
+      return;
+    }
+    const args = rest.slice(2);
+    if (sub === "add") {
+      cmdRecipientsAdd(jobId, args);
+      return;
+    }
+    if (sub === "remove") {
+      cmdRecipientsRemove(jobId, args);
+      return;
+    }
+    if (sub === "clear") {
+      cmdRecipientsClear(jobId);
+      return;
+    }
+    console.error(`${RED}알 수 없는 recipients 서브명령: ${sub}${RESET}`);
+    printHelp();
+    process.exit(1);
   }
 
   console.error(`${RED}알 수 없는 명령: ${cmd}${RESET}`);

@@ -55,6 +55,10 @@ Owner가 로컬 터미널에서 사용하는 명령입니다.
 | `jarvis user ls\|show\|profile\|rename\|rm <user_id>` | 유저 관리 |
 | `jarvis cron list [user_id]` | cron_jobs 조회 |
 | `jarvis cron run <job_id> [--send]` | 즉시 실행 (결과 터미널 출력, `--send`로 채널 전송도) |
+| `jarvis cron recipients <job_id>` | 브로드캐스트 수신자 목록 |
+| `jarvis cron recipients <job_id> add <uid>...` | 수신자 추가 (여러 명 가능) |
+| `jarvis cron recipients <job_id> remove <uid>...` | 수신자 제거 |
+| `jarvis cron recipients <job_id> clear` | `recipients` 필드 제거 (소유자 기본값) |
 
 ### 조회/진단
 
