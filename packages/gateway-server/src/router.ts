@@ -362,13 +362,14 @@ function handleSystemCommand(
       // 1) 기존 claude_session_id를 null로 초기화
       const previous = resetClaudeSessionId(msg.user_id);
       // 2) 즉시 새 UUID 발급 (다음 메시지가 바로 새 세션으로 시작)
+      //    getOrCreateClaudeSessionId는 ClaudeSessionHandle { session_id, started }를 반환
       const next = getOrCreateClaudeSessionId(msg.user_id);
       return {
         action: "respond",
         response: [
           "대화 컨텍스트가 초기화되었습니다.",
           `이전 세션: ${previous ? previous.slice(0, 8) + "..." : "없음"}`,
-          `새 세션: ${next.slice(0, 8)}...`,
+          `새 세션: ${next.session_id.slice(0, 8)}...`,
           "",
           "지금부터 보내는 메시지는 처음 보는 대화로 처리됩니다.",
           "(저장된 메모리/선호도/personality는 유지됩니다)",
