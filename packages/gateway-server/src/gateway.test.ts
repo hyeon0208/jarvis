@@ -149,7 +149,7 @@ describe("Claude Session Handle", () => {
     await cleanup();
   });
 
-  test("/clear (reset): UUID 삭제 + started=false", async () => {
+  test("/clear (reset): UUID 삭제 + started=false + jsonl 삭제 시도", async () => {
     await cleanup();
     const { getOrCreateClaudeSessionId, markClaudeSessionStarted, resetClaudeSessionId } =
       await import("./auth.js");
@@ -157,8 +157,12 @@ describe("Claude Session Handle", () => {
     const h1 = getOrCreateClaudeSessionId(TEST_USER);
     markClaudeSessionStarted(TEST_USER);
 
-    const previous = resetClaudeSessionId(TEST_USER);
-    expect(previous).toBe(h1.session_id);
+    // resetClaudeSessionId는 { session_id, deleted_path } 반환
+    const result = resetClaudeSessionId(TEST_USER);
+    expect(result.session_id).toBe(h1.session_id);
+    // 테스트 환경에선 jsonl 파일이 없으므로 deleted_path는 null
+    // (실제 세션에선 Claude Code가 jsonl 생성 후 파일이 존재)
+    expect(result.deleted_path).toBeNull();
 
     const h2 = getOrCreateClaudeSessionId(TEST_USER);
     expect(h2.session_id).not.toBe(h1.session_id); // 새 UUID

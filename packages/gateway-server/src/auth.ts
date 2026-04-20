@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
 
@@ -249,16 +249,62 @@ export function markClaudeSessionStarted(userId: string): void {
 }
 
 /**
- * Claude 세션을 초기화합니다 (/clear).
- * - UUID 삭제 + started=false로 리셋 → 다음 호출이 --session-id로 새 세션 시작
+ * 주어진 UUID의 claude 세션 jsonl 파일을 디스크에서 삭제합니다.
+ *
+ * Claude Code는 세션을 ~/.claude/projects/{cwd-해시}/{UUID}.jsonl로 저장합니다.
+ * cwd-해시 생성 규칙이 Claude Code 내부 규약이라 정확히 재현하기보다,
+ * projects 하위의 모든 디렉토리를 순회하며 {UUID}.jsonl을 찾아 삭제합니다.
+ * UUID는 전역 유니크하므로 중복 매칭 우려 없음.
+ *
+ * 반환: 삭제한 파일 경로 (없었으면 null)
  */
-export function resetClaudeSessionId(userId: string): string | null {
+function deleteClaudeSessionJsonl(sessionId: string): string | null {
+  if (!sessionId) return null;
+  const projectsDir = join(process.env.HOME ?? "~", ".claude", "projects");
+  if (!existsSync(projectsDir)) return null;
+
+  try {
+    for (const dir of readdirSync(projectsDir)) {
+      const file = join(projectsDir, dir, `${sessionId}.jsonl`);
+      if (existsSync(file)) {
+        try {
+          rmSync(file);
+          return file;
+        } catch {
+          // 권한/I/O 실패는 조용히 넘어감 (세션 포인터는 이미 리셋됨)
+          return null;
+        }
+      }
+    }
+  } catch {
+    // projects 디렉토리 읽기 실패는 무시
+  }
+  return null;
+}
+
+/**
+ * Claude 세션을 초기화합니다 (/clear).
+ *
+ * 동작:
+ * 1. user 파일의 claude_session_id = null, claude_session_started = false
+ * 2. 이전 세션의 jsonl 파일을 디스크에서 실제 삭제
+ *    (대화 기록이 남아있으면 개인정보/시크릿 노출 위험 + 사용자 기대와 불일치)
+ *
+ * 반환: { session_id: 이전 UUID, deleted_path: 삭제된 파일 경로 또는 null }
+ */
+export function resetClaudeSessionId(userId: string): {
+  session_id: string | null;
+  deleted_path: string | null;
+} {
   const config = loadUserConfig(userId);
-  if (!config) return null;
+  if (!config) return { session_id: null, deleted_path: null };
+
   const previous = (config.claude_session_id as string | undefined) ?? null;
   updateUserConfig(userId, {
     claude_session_id: null,
     claude_session_started: false,
   });
-  return previous;
+
+  const deletedPath = previous ? deleteClaudeSessionJsonl(previous) : null;
+  return { session_id: previous, deleted_path: deletedPath };
 }

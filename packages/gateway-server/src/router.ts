@@ -359,20 +359,24 @@ function handleSystemCommand(
 
     case "/clear":
     case "/reset": {
-      // 1) 기존 claude_session_id를 null로 초기화
-      const previous = resetClaudeSessionId(msg.user_id);
+      // 1) 기존 세션 초기화 + jsonl 파일 실제 삭제
+      const { session_id: previousId, deleted_path } = resetClaudeSessionId(msg.user_id);
       // 2) 즉시 새 UUID 발급 (다음 메시지가 바로 새 세션으로 시작)
-      //    getOrCreateClaudeSessionId는 ClaudeSessionHandle { session_id, started }를 반환
       const next = getOrCreateClaudeSessionId(msg.user_id);
+
+      const previousLine = previousId
+        ? `이전 세션: ${previousId.slice(0, 8)}... ${deleted_path ? "(대화 기록 삭제됨)" : "(기록 파일 못 찾음)"}`
+        : "이전 세션: 없음";
+
       return {
         action: "respond",
         response: [
           "대화 컨텍스트가 초기화되었습니다.",
-          `이전 세션: ${previous ? previous.slice(0, 8) + "..." : "없음"}`,
+          previousLine,
           `새 세션: ${next.session_id.slice(0, 8)}...`,
           "",
           "지금부터 보내는 메시지는 처음 보는 대화로 처리됩니다.",
-          "(저장된 메모리/선호도/personality는 유지됩니다)",
+          "(jarvis_memory에 저장된 장기 기억 · personality · cron_jobs는 유지됩니다)",
         ].join("\n"),
       };
     }

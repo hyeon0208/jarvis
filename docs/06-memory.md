@@ -35,23 +35,35 @@ Jarvis는 두 가지 "기억"을 별개로 관리합니다.
 
 ### 컨텍스트 초기화 — `/clear` 또는 `/reset`
 
-각 채널에서 `/clear`를 보내면 그 user의 단기 컨텍스트만 리셋됩니다.
+각 채널에서 `/clear`를 보내면 그 user의 **단기 컨텍스트만** 리셋됩니다 (장기 메모리는 유지).
 
 ```
 팀원 → /clear
 봇   → 대화 컨텍스트가 초기화되었습니다.
-       이전 세션: abc12345...
+       이전 세션: abc12345... (대화 기록 삭제됨)
        새 세션: def67890...
        지금부터 보내는 메시지는 처음 보는 대화로 처리됩니다.
-       (저장된 메모리/선호도/personality는 유지됩니다)
+       (jarvis_memory에 저장된 장기 기억 · personality · cron_jobs는 유지됩니다)
 ```
 
 내부 동작:
-1. `resetClaudeSessionId(userId)` → user 파일의 `claude_session_id`를 `null`로
+1. `resetClaudeSessionId(userId)`:
+   - user 파일의 `claude_session_id`를 `null`로, `claude_session_started=false`
+   - **이전 세션의 jsonl 파일을 디스크에서 실제 삭제** (`~/.claude/projects/.../{OLD-UUID}.jsonl`)
 2. `getOrCreateClaudeSessionId(userId)` → 즉시 새 UUID 발급해서 저장
 3. 다음 메시지부터 새 UUID로 claude 호출 → 새 세션 시작
 
-> **장기 메모리(선언/절차/세션 검색)는 영향 없음**. `/clear`는 claude의 단기 대화 맥락만 리셋. personality, cron_jobs, jarvis_memory_recall 결과는 그대로.
+> **장기 메모리(선언/절차/세션 검색)는 영향 없음**. `/clear`는 claude의 단기 대화 맥락(jsonl)만 리셋. personality, cron_jobs, jarvis_memory_recall 결과는 그대로.
+
+### 왜 jsonl을 실제 삭제하나
+
+이전에는 user 파일의 포인터만 끊고 jsonl을 남겼지만:
+- 사용자 기대(`/clear = 초기화`)와 불일치
+- 민감한 대화 내용이 디스크에 누적 → 보안 위험
+- 시간이 지나면 디스크 용량 낭비
+- Jarvis 자동 흐름에서 복구 경로를 쓰지 않으므로 잔존 의미 없음
+
+따라서 `/clear`는 **포인터 끊기 + 파일 삭제**를 함께 수행합니다.
 
 ---
 
@@ -460,7 +472,8 @@ jarvis_dream_history
 
 | 명령 | 무엇이 초기화되나 | 무엇이 남나 |
 |------|-----------------|-----------|
-| `/clear` (Claude Code 슬래시) | 현재 대화의 컨텍스트 | 시스템 프롬프트, MCP 서버, 모든 영구 데이터 |
+| `/clear` (**채널 슬래시**, 텔레그램/슬랙/디스코드) | 해당 user의 claude 세션 jsonl **파일도 디스크에서 실제 삭제** + 새 UUID 발급 | 장기 메모리(SQLite), personality, cron_jobs |
+| `/clear` (Claude Code 슬래시, 터미널) | 현재 대화의 컨텍스트만 (메모리 내) | 시스템 프롬프트, MCP 서버, 모든 영구 데이터 |
 | `/compact` (Claude Code 슬래시) | 현재 대화를 요약본으로 압축 | 요약 + 시스템 프롬프트 |
 | `Ctrl+C` 후 `claude` 재실행 | 현재 transcript 종료, 새 세션 | `~/.claude/projects/.../*.jsonl` 모든 과거 transcript |
 | `jarvis_memory_forget` (MCP) | 특정 메모리 항목 1개 | 그 외 모든 데이터 |
