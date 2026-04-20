@@ -147,7 +147,9 @@ async function executeWithClaude(
     log("INFO", `cwd: ${cwdDir} (${isOwner ? "owner-home" : workDir ? "worktree" : "sandbox"})`);
 
     const child = spawn("claude", args, {
-      stdio: ["pipe", "pipe", "pipe"],
+      // stdin: "ignore" — prompt는 args로 전달되므로 stdin을 쓰지 않음.
+      //   "pipe"로 두면 claude CLI가 stdin을 3초 기다리다 "no stdin data received" 경고 + exit 1 발생.
+      stdio: ["ignore", "pipe", "pipe"],
       cwd: cwdDir,
       timeout: 5 * 60 * 1000,
       env: {
