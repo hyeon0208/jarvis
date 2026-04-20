@@ -134,16 +134,13 @@ async function cmdRun(jobId: string, opts: { send: boolean }): Promise<void> {
   const sessionHandle = getOrCreateClaudeSessionId(user.user_id);
   const sessionExists =
     sessionHandle.started || hasClaudeSessionJsonl(sessionHandle.session_id);
-  if (sessionExists) {
-    args.push("--resume", sessionHandle.session_id);
-  } else {
-    args.push("--session-id", sessionHandle.session_id);
-  }
+  const sessionFlag = sessionExists ? "--resume" : "--session-id";
+  args.push(sessionFlag, sessionHandle.session_id);
 
   const cwdDir = ensureSandbox(user.user_id);
   const channelName = user.user_id.includes(":") ? user.user_id.split(":")[0] : "owner";
 
-  console.log(`${DIM}executing: claude ... --session-id ${sessionHandle.session_id.slice(0, 8)}... (cwd=${cwdDir})${RESET}\n`);
+  console.log(`${DIM}executing: claude ... ${sessionFlag} ${sessionHandle.session_id.slice(0, 8)}... (cwd=${cwdDir})${RESET}\n`);
 
   const startedAt = Date.now();
   const child = spawn("claude", args, {
