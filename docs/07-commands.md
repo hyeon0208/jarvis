@@ -163,6 +163,31 @@ Telegram에서 `/`를 입력하면 자동완성 메뉴가 표시됩니다.
 
 **실행 메커니즘**: 데몬이 1분 간격으로 모든 유저의 `cron_jobs`를 스캔 → 스케줄 매칭 + `enabled: true` 항목을 `claude -p`로 실행 → 응답을 해당 user의 채널로 자동 전송. 구현: `packages/gateway-server/src/cron-runner.ts` ([06. 메모리 § 단기 컨텍스트](06-memory.md)와 독립적인 별도 기능).
 
+**브로드캐스트** (`recipients` 필드, 선택): 한 job의 결과를 여러 유저에게 동시 전송. 실행은 **소유자 컨텍스트로 1회만** (세션/메모리 격리 유지), 전송만 N회.
+
+```jsonc
+// ~/.jarvis/users/telegram_1613476146.json (owner 파일)
+{
+  "cron_jobs": [
+    {
+      "id": "cron-morning-briefing",
+      "schedule": "0 9 * * *",
+      "prompt": "모닝 브리핑을 작성해...",
+      "enabled": true,
+      "recipients": [
+        "telegram:1613476146",   // 본인 (owner)
+        "telegram:8731028442",   // 팀원 A
+        "slack:U07ABC"           // 팀원 B (Slack)
+      ]
+    }
+  ]
+}
+```
+
+- `recipients`가 비어있거나 없으면 → 소유자 user_id로만 전송 (기본)
+- 있으면 → 목록 전체로 전송 (채널별 adapter 자동 선택)
+- 세션/메모리는 소유자 기준이므로 이전 대화 맥락이 팀원 채널로 유출되지 않음 (주의)
+
 ### 일반 메시지
 
 커맨드가 아닌 일반 메시지는 **AI 질문**으로 처리됩니다:

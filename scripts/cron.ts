@@ -48,6 +48,7 @@ interface UserFile {
     prompt: string;
     enabled: boolean;
     last_run_at: string | null;
+    recipients?: string[];
   }>;
 }
 
@@ -100,8 +101,13 @@ function cmdList(userIdFilter?: string): void {
       const mark = job.enabled ? `${GREEN}●${RESET}` : `${DIM}○${RESET}`;
       const last = job.last_run_at ? job.last_run_at.slice(0, 16) : "never";
       const preview = job.prompt.replace(/\s+/g, " ").slice(0, 60);
+      const recipients =
+        job.recipients && job.recipients.length > 0
+          ? job.recipients.join(", ")
+          : `(owner: ${user.user_id})`;
       console.log(`  ${mark} ${job.id}`);
       console.log(`     schedule: ${job.schedule}    last_run: ${last}`);
+      console.log(`     recipients: ${recipients}`);
       console.log(`     ${DIM}${preview}...${RESET}`);
       total++;
     }
@@ -183,7 +189,14 @@ async function cmdRun(jobId: string, opts: { send: boolean }): Promise<void> {
   console.log("─".repeat(60));
 
   if (opts.send && response) {
-    await sendToChannel(user.user_id, response);
+    const recipients =
+      job.recipients && job.recipients.length > 0
+        ? job.recipients
+        : [user.user_id];
+    console.log(`\n${DIM}수신자: ${recipients.join(", ")}${RESET}`);
+    for (const recipient of recipients) {
+      await sendToChannel(recipient, response);
+    }
   }
 }
 

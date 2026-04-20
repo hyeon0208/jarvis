@@ -30,6 +30,13 @@ interface UserFile {
     prompt: string;
     enabled: boolean;
     last_run_at: string | null;
+    /**
+     * Optional broadcast list. If present and non-empty, the cron result is sent
+     * to every user_id in this list instead of the job owner.
+     * Each entry uses the standard "{channel}:{external_id}" format
+     * (e.g., "telegram:1613476146", "slack:U07ABC").
+     */
+    recipients?: string[];
   }>;
 }
 
@@ -228,17 +235,24 @@ export function startCronRunner(opts: CronRunnerOptions): () => void {
           `[cron] 실행: user=${user.user_id} job=${job.id} schedule="${job.schedule}" prompt="${job.prompt.slice(0, 60)}..."`,
         );
 
-        // 비동기 실행 (다음 tick 차단하지 않음)
+        // recipients 지정 시 브로드캐스트, 없으면 소유자에게만 전송
+        const recipients =
+          job.recipients && job.recipients.length > 0
+            ? job.recipients
+            : [user.user_id];
+
+        // 비동기 실행 (다음 tick 차단하지 않음) — 실행은 1회, 전송은 N회
         execute({
           prompt: job.prompt,
-          userId: user.user_id,
+          userId: user.user_id, // 세션/메모리는 소유자 기준 (일관성)
           profile: user.profile ?? "observer",
           userName: user.name ?? user.user_id,
           personality: user.personality,
         })
           .then(async (response) => {
-            if (response) {
-              await sendToUserChannel(adapters, user.user_id, response, log);
+            if (!response) return;
+            for (const recipient of recipients) {
+              await sendToUserChannel(adapters, recipient, response, log);
             }
           })
           .catch((err) => {
