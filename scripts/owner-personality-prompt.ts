@@ -23,6 +23,7 @@ interface Personality {
   language?: string;
   verbosity?: string;
   nickname?: string;
+  system_prompt_extra?: string;
 }
 
 function buildPrompt(p: Personality, name?: string): string {
@@ -53,6 +54,11 @@ function buildPrompt(p: Personality, name?: string): string {
   else if (p.verbosity === "detailed") parts.push("Include detailed explanations.");
 
   if (p.nickname) parts.push(`Your name is "${p.nickname}".`);
+
+  // Free-form extension (detailed role/persona instructions)
+  if (p.system_prompt_extra && p.system_prompt_extra.trim()) {
+    parts.push(p.system_prompt_extra.trim());
+  }
 
   return parts.filter(Boolean).join(" ");
 }

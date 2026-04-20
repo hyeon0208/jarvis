@@ -265,6 +265,14 @@ export function buildPersonalityPrompt(
     parts.push(`Your name is "${nickname}".`);
   }
 
+  // Free-form per-user prompt extension.
+  // Put detailed role/persona instructions here (e.g., domain expertise, character voice).
+  // Appended last so it can override/augment the fixed mappings above.
+  const extra = personality.system_prompt_extra as string | undefined;
+  if (extra && extra.trim()) {
+    parts.push(extra.trim());
+  }
+
   return parts.filter(Boolean).join(" ");
 }
 

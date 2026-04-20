@@ -19,23 +19,58 @@ Jarvis는 **유저마다** 에이전트의 말투, 언어, 상세도, 호칭을 
 
 ## 1. 설정 가능한 필드
 
-| 필드 | 선택지 | 효과 (실제 시스템 프롬프트로 주입되는 문장) |
+기본 필드는 고정 선택지이고, `system_prompt_extra`는 자유 서술입니다.
+LLM 시스템 프롬프트는 토큰 효율을 위해 영어로 주입되지만, 응답 언어는 `language` 필드로 제어됩니다 (기본 한국어).
+
+| 필드 | 선택지 | 효과 (실제 시스템 프롬프트로 주입되는 문장, 영어) |
 |------|-------|--------------------------------------|
-| `tone` | `formal` | "정중하고 격식 있는 톤으로 응답하세요." |
-| | `casual` | "편안하고 친근한 톤으로 응답하세요." |
-| | `friendly` | "밝고 친절한 톤으로 응답하세요." |
-| | `technical` | "기술적이고 정확한 톤으로 응답하세요." |
-| `language` | `ko` | "한국어로 응답하세요." |
+| `tone` | `formal` | "Use a formal and polite tone." |
+| | `casual` | "Use a casual and friendly tone." |
+| | `friendly` | "Use a warm and friendly tone." |
+| | `technical` | "Use a technical and precise tone." |
+| `language` | `ko` | "Respond in Korean (한국어)." |
 | | `en` | "Respond in English." |
-| | `ja` | "日本語で応答してください。" |
-| | (그 외) | "{입력값}로 응답하세요." |
-| `verbosity` | `concise` | "응답은 간결하게 핵심만 전달하세요." |
+| | `ja` | "Respond in Japanese (日本語)." |
+| | (미지정) | "Respond in Korean (한국어) by default." |
+| | (그 외) | "Respond in {값}." |
+| `verbosity` | `concise` | "Keep responses terse — only the essentials." |
 | | `normal` | (추가 지시 없음) |
-| | `detailed` | "응답은 상세하게 설명을 포함하세요." |
+| | `detailed` | "Include detailed explanations." |
 | `emoji` | `true` / `false` | **현재 문자열로 주입되지 않음** (향후 확장) |
-| `nickname` | 자유 문자열 | "당신의 이름은 \"{값}\"입니다." |
+| `nickname` | 자유 문자열 | `Your name is "{값}".` |
+| **`system_prompt_extra`** | **자유 서술** | **위 필드로 표현 불가능한 상세 캐릭터/역할/도메인 지시를 그대로 주입** (프롬프트 끝에 append). 영어 권장 (토큰 효율). |
 
 구현 근거: [`packages/gateway-server/src/permissions.ts`](../packages/gateway-server/src/permissions.ts) — `buildPersonalityPrompt()` 함수.
+
+### `system_prompt_extra` 사용 예시
+
+고정 필드만으로 표현이 어려운 캐릭터/역할/도메인 전문가를 만들 때 씁니다. user JSON의 `personality.system_prompt_extra`에 자유롭게 작성:
+
+```json
+{
+  "personality": {
+    "tone": "formal",
+    "language": "ko",
+    "nickname": "집사",
+    "system_prompt_extra": "You are a devoted butler serving the user. Address them with the highest Korean honorific (극존칭/합쇼체). Anticipate needs and offer gentle suggestions."
+  }
+}
+```
+
+또는 도메인 전문가:
+```json
+{
+  "personality": {
+    "tone": "technical",
+    "verbosity": "detailed",
+    "system_prompt_extra": "You are a senior SRE specializing in Kubernetes. Always consider scaling, observability, and incident response. Cite relevant kubectl commands and include rollback procedures."
+  }
+}
+```
+
+**순서**: 기본 필드 → `system_prompt_extra` (가장 마지막에 append). 따라서 extra가 상위 필드의 지시를 보강/덮어쓸 수 있습니다.
+
+**길이 가이드**: 수백 자 권장. 너무 길면 매 요청의 시스템 프롬프트가 커져 토큰 비용/지연 증가.
 
 ---
 
@@ -61,11 +96,14 @@ Jarvis는 **유저마다** 에이전트의 말투, 언어, 상세도, 호칭을 
     "language": "ko",
     "verbosity": "normal",
     "emoji": false,
-    "nickname": "Jarvis"
+    "nickname": "Jarvis",
+    "system_prompt_extra": ""
   },
   "cron_jobs": []
 }
 ```
+
+> `system_prompt_extra`는 없거나 빈 문자열이면 주입되지 않습니다. 상세 캐릭터가 필요할 때만 채우세요.
 
 ### 반영 시점
 
