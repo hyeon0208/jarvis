@@ -19,6 +19,7 @@ import {
   loadUserConfig,
   getOrCreateClaudeSessionId,
   markClaudeSessionStarted,
+  hasClaudeSessionJsonl,
 } from "./auth.js";
 import { addCronJob, listCronJobs, deleteCronJob, toggleCronJob } from "./cron.js";
 // worktree는 workflow.ts가 관리 (router → workflow → worktree)
@@ -112,13 +113,16 @@ async function executeWithClaude(
   //   이후:   --resume <UUID>    (기존 세션 이어가기)
   //   /clear: UUID 리셋 → 다음 호출이 다시 --session-id로 시작
   const sessionHandle = getOrCreateClaudeSessionId(userId);
-  if (sessionHandle.started) {
+  // 분기 기준: started 플래그와 실제 jsonl 존재 여부를 모두 확인.
+  // 어느 쪽이든 true면 이미 세션이 있다는 의미 → --resume (ground truth 우선)
+  const sessionExists = sessionHandle.started || hasClaudeSessionJsonl(sessionHandle.session_id);
+  if (sessionExists) {
     args.push("--resume", sessionHandle.session_id);
   } else {
     args.push("--session-id", sessionHandle.session_id);
   }
 
-  const sessionMode = sessionHandle.started ? "resume" : "new";
+  const sessionMode = sessionExists ? "resume" : "new";
   log(
     "INFO",
     `claude 실행: profile=${profileName}, session=${sessionHandle.session_id.slice(0, 8)}... (${sessionMode}), dir=${workDir ?? "sandbox"}, prompt=${prompt.slice(0, 80)}...`,
@@ -172,7 +176,7 @@ async function executeWithClaude(
         resolve(`오류가 발생했습니다. (코드: ${code})`);
       } else {
         // 정상 종료 → 세션이 실제로 생성됨(또는 재사용됨)
-        // 첫 호출이었다면 이 시점부터 started=true로 전환 (다음 호출은 --resume)
+        // user 파일의 started 플래그를 true로 정정 (jsonl 존재로 resume한 경우도 플래그 동기화)
         if (!sessionHandle.started) {
           markClaudeSessionStarted(userId);
         }

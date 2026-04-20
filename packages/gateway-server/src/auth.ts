@@ -249,6 +249,31 @@ export function markClaudeSessionStarted(userId: string): void {
 }
 
 /**
+ * 주어진 UUID에 해당하는 claude 세션 jsonl 파일이 디스크에 존재하는지 확인합니다.
+ *
+ * 사용처: --session-id vs --resume 분기 판단.
+ * user 파일의 claude_session_started 플래그가 어떤 이유로 잘못 기록돼 있을 수 있으므로,
+ * 실제 jsonl 존재 여부를 "ground truth"로 삼는 게 견고합니다.
+ *
+ * - 파일 있음 → 이미 claude가 세션 생성했음 → --resume 사용해야 함
+ * - 파일 없음 → 새 세션 → --session-id 사용
+ */
+export function hasClaudeSessionJsonl(sessionId: string): boolean {
+  if (!sessionId) return false;
+  const projectsDir = join(process.env.HOME ?? "~", ".claude", "projects");
+  if (!existsSync(projectsDir)) return false;
+
+  try {
+    for (const dir of readdirSync(projectsDir)) {
+      if (existsSync(join(projectsDir, dir, `${sessionId}.jsonl`))) return true;
+    }
+  } catch {
+    // projects 디렉토리 읽기 실패는 무시
+  }
+  return false;
+}
+
+/**
  * 주어진 UUID의 claude 세션 jsonl 파일을 디스크에서 삭제합니다.
  *
  * Claude Code는 세션을 ~/.claude/projects/{cwd-해시}/{UUID}.jsonl로 저장합니다.

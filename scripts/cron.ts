@@ -24,6 +24,7 @@ import {
 import {
   getOrCreateClaudeSessionId,
   markClaudeSessionStarted,
+  hasClaudeSessionJsonl,
 } from "../packages/gateway-server/src/auth.js";
 import { createEnabledAdapters } from "../packages/gateway-server/src/adapters/registry.js";
 
@@ -129,9 +130,11 @@ async function cmdRun(jobId: string, opts: { send: boolean }): Promise<void> {
     systemPrompt: personalityPrompt,
   });
 
-  // 세션 연속성 유지
+  // 세션 연속성 유지 — jsonl 존재 여부로 ground truth 판단
   const sessionHandle = getOrCreateClaudeSessionId(user.user_id);
-  if (sessionHandle.started) {
+  const sessionExists =
+    sessionHandle.started || hasClaudeSessionJsonl(sessionHandle.session_id);
+  if (sessionExists) {
     args.push("--resume", sessionHandle.session_id);
   } else {
     args.push("--session-id", sessionHandle.session_id);
@@ -173,6 +176,7 @@ async function cmdRun(jobId: string, opts: { send: boolean }): Promise<void> {
     process.exit(1);
   }
 
+  // 정상 종료 → started 플래그 정정 (jsonl 존재로 resume한 경우도 동기화)
   if (!sessionHandle.started) markClaudeSessionStarted(user.user_id);
 
   const response = stdout.trim();
