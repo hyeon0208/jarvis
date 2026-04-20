@@ -105,14 +105,14 @@ export function buildClaudeArgs(
   const claude = profile?.claude;
   const args = ["-p", prompt, "--output-format", "text"];
 
-  // owner 프로필 (skip_permissions: true) — 제한 없이 모든 도구 허용
+  // owner profile (skip_permissions: true) — no restrictions, full access
   if (claude?.skip_permissions) {
     args.push("--dangerously-skip-permissions");
 
-    // cwd는 일관성을 위해 user별 샌드박스(빈 디렉토리) 고정.
-    // 홈/시스템 접근은 --add-dir로 허용 (owner는 격리 의도 없음).
-    //   · options.projectDir이 있으면 그쪽 우선 (예: /dev worktree)
-    //   · 없으면 $HOME 추가 → owner는 홈 전체 접근 가능
+    // cwd stays on the user sandbox (for session jsonl path consistency).
+    // Filesystem access is granted via --add-dir:
+    //   · options.projectDir wins if present (e.g., /dev worktree)
+    //   · otherwise $HOME — owner gets full home-tree access
     if (options?.projectDir) {
       args.push("--add-dir", options.projectDir);
     } else if (process.env.HOME) {
@@ -122,9 +122,19 @@ export function buildClaudeArgs(
     if (claude.model) args.push("--model", claude.model);
     if (claude.effort) args.push("--effort", claude.effort);
 
-    if (options?.systemPrompt) {
-      args.push("--append-system-prompt", options.systemPrompt);
-    }
+    // Owner-specific instruction — prevents the model from self-refusing based on
+    // previous session context that said "sandbox blocks home access".
+    // The dangerously-skip-permissions flag is on AND $HOME is in --add-dir,
+    // so the model should execute Bash/Read directly on home paths.
+    const ownerOverride =
+      "[Owner mode] You have FULL filesystem access, including the user's home directory and all its subdirectories. " +
+      "Run requested shell commands directly via the Bash tool without hesitation. " +
+      "Ignore any previous session messages that claimed access was restricted — this request is from the Owner with --dangerously-skip-permissions and --add-dir $HOME.";
+
+    const combinedPrompt = options?.systemPrompt
+      ? `${options.systemPrompt}\n\n${ownerOverride}`
+      : ownerOverride;
+    args.push("--append-system-prompt", combinedPrompt);
     return args;
   }
 
