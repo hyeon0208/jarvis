@@ -1,125 +1,125 @@
 ---
 name: jarvis-telegram
-description: "Telegram 채널을 통한 Jarvis 요청을 처리합니다. <channel source=\"telegram\"> 태그가 감지되면 자동으로 활성화되어 인증, 권한 체크, 메시지 라우팅을 수행합니다. /jarvis-telegram으로 수동 호출도 가능합니다."
+description: "Handles Jarvis requests over Telegram. Activates automatically when a <channel source=\"telegram\"> tag is detected, performing authentication, permission checks, and message routing. Can also be invoked manually via /jarvis-telegram."
 ---
 
-# Jarvis Telegram 채널 처리기
+# Jarvis Telegram Channel Handler
 
-## 트리거
+## Trigger
 
-`<channel source="telegram" ...>` 태그가 포함된 메시지가 도착하면 이 스킬이 활성화됩니다.
+This skill activates when an incoming message contains a `<channel source="telegram" ...>` tag.
 
-## 처리 절차
+## Procedure
 
-### Step 1: 메시지 파싱
+### Step 1: Parse message
 
-`<channel>` 태그에서 다음 정보를 추출합니다:
-- `chat_id` — Telegram 채팅방 ID
-- `message_id` — 메시지 ID
-- `user` — 발신자 이름
-- 메시지 본문
+Extract from the `<channel>` tag:
+- `chat_id` — Telegram chat room ID
+- `message_id` — Message ID
+- `user` — Sender display name
+- Message body
 
-**유저 ID 규칙**: `telegram:{chat_id}` 형식으로 식별
+**User ID format**: `telegram:{chat_id}`
 
-### Step 2: 게이트웨이 라우팅
+### Step 2: Gateway routing
 
-`jarvis_gateway_route` MCP 도구를 호출합니다:
+Call the `jarvis_gateway_route` MCP tool:
 
 ```
 jarvis_gateway_route(
   channel: "telegram",
   user_id: "telegram:{chat_id}",
   display_name: "{user}",
-  message: "{메시지 본문}",
+  message: "{message body}",
   message_id: "{message_id}",
   chat_id: "{chat_id}"
 )
 ```
 
-### Step 3: 결과 처리
+### Step 3: Handle result
 
-라우팅 결과의 `action`에 따라 분기합니다:
+Branch on the routing result's `action`:
 
-#### `pairing_required` — 미인증 유저
-게이트웨이가 생성한 페어링 안내 메시지를 Telegram으로 전송:
+#### `pairing_required` — unauthenticated user
+Send the pairing instructions produced by the gateway to Telegram:
 ```
 mcp__plugin_telegram_telegram__reply(
   chat_id: "{chat_id}",
-  text: "{페어링 안내 메시지}"
+  text: "{pairing instructions}"
 )
 ```
 
-#### `permission_denied` — 권한 부족
-거부 메시지를 Telegram으로 전송:
+#### `permission_denied` — insufficient permissions
+Send the denial message to Telegram:
 ```
 mcp__plugin_telegram_telegram__reply(
   chat_id: "{chat_id}",
-  text: "{권한 부족 메시지}"
+  text: "{denial message}"
 )
 ```
 
-#### `respond` — 시스템 커맨드 응답
-즉시 응답 메시지를 전송:
+#### `respond` — system command response
+Send the immediate response:
 ```
 mcp__plugin_telegram_telegram__reply(
   chat_id: "{chat_id}",
-  text: "{응답 메시지}"
+  text: "{response text}"
 )
 ```
 
-#### `execute` — 일반 요청 처리
+#### `execute` — general request
 
-1. 유저의 프로필과 개인화 설정을 확인합니다
-2. 프로필 권한에 따라 요청을 처리합니다:
-   - **observer**: 질문/검색만 가능 → 코드를 읽고 답변만 생성
-   - **reviewer**: 읽기 + 분석 → 코드 분석, PR 리뷰 결과 생성
-   - **developer**: 읽기/쓰기 → 코드 수정 가능 (sandbox 환경)
-   - **owner**: 전체 접근 (Owner 본인 전용)
-3. 개인화 설정(tone, language, verbosity)에 맞게 응답을 생성합니다
-4. 결과를 Telegram으로 전송:
+1. Check the user's profile and personality settings
+2. Handle the request according to profile permissions:
+   - **observer**: question/search only — read code and generate answers only
+   - **reviewer**: read + analyze — code review, PR analysis
+   - **developer**: read/write — can modify code (sandbox cwd)
+   - **owner**: full access (Owner only)
+3. Generate the response honoring personality (tone, language, verbosity)
+4. Send to Telegram:
 ```
 mcp__plugin_telegram_telegram__reply(
   chat_id: "{chat_id}",
-  text: "{처리 결과}"
+  text: "{result}"
 )
 ```
 
-### Step 4: 크론잡 처리
+### Step 4: Cron job handling
 
-메시지가 `/cron` 커맨드인 경우, 라우팅 결과의 response에 크론 액션이 포함됩니다:
+If the message is a `/cron` command, the routing result's response contains a cron action:
 
 ```json
-{"action": "cron_add", "args": {"prompt": "매일 9시 할 일 정리"}}
+{"action": "cron_add", "args": {"prompt": "daily 9am task summary"}}
 ```
 
-이 경우 `jarvis_cron_manage` MCP 도구를 호출하고 결과를 Telegram으로 전송합니다.
+In this case, call the `jarvis_cron_manage` MCP tool and send the result to Telegram.
 
-## 페어링 승인 (Owner만)
+## Pairing approval (Owner only)
 
-Owner가 터미널에서 페어링을 승인하는 방법:
-
-```
-/jarvis-telegram pair list     → 대기 중인 페어링 목록
-/jarvis-telegram pair approve {코드} {프로필}  → 승인
-/jarvis-telegram pair reject {유저ID}  → 거부
-```
-
-이때 `jarvis_gateway_pair` MCP 도구를 사용합니다.
-
-## 서브 커맨드
+How Owner approves pairings from the terminal:
 
 ```
-/jarvis-telegram status    → 채널 상태
-/jarvis-telegram pair list → 페어링 목록
-/jarvis-telegram pair approve {코드} developer → 승인
-/jarvis-telegram pair reject {유저ID} → 거부
+/jarvis-telegram pair list                          → list pending pairings
+/jarvis-telegram pair approve {code} {profile}      → approve
+/jarvis-telegram pair reject {user_id}              → reject
 ```
 
-## MCP 도구 의존성
-- `jarvis_gateway_route` — 메시지 라우팅
-- `jarvis_gateway_pair` — 페어링 관리
-- `jarvis_gateway_send` — 메시지 전송
-- `jarvis_cron_manage` — 크론잡 관리
-- `jarvis_sandbox_config` — 샌드박스 설정
-- `mcp__plugin_telegram_telegram__reply` — Telegram 메시지 전송
-- `mcp__plugin_telegram_telegram__react` — Telegram 이모지 반응
+Uses the `jarvis_gateway_pair` MCP tool.
+
+## Subcommands
+
+```
+/jarvis-telegram status    → channel status
+/jarvis-telegram pair list → list pairings
+/jarvis-telegram pair approve {code} developer → approve
+/jarvis-telegram pair reject {user_id} → reject
+```
+
+## MCP Tool Dependencies
+- `jarvis_gateway_route` — message routing
+- `jarvis_gateway_pair` — pairing management
+- `jarvis_gateway_send` — message sending
+- `jarvis_cron_manage` — cron job management
+- `jarvis_sandbox_config` — sandbox configuration
+- `mcp__plugin_telegram_telegram__reply` — send Telegram message
+- `mcp__plugin_telegram_telegram__react` — add Telegram emoji reaction

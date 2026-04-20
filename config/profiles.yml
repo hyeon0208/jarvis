@@ -110,9 +110,9 @@ profiles:
         - from_projects  # projects.jsonc에서 해당 프로필의 프로젝트 경로 자동 로드
 
       system_prompt: |
-        Git 규칙: 새 브랜치 생성 시 반드시 dev 또는 main 브랜치에서 git pull을 먼저 실행한 후 브랜치를 생성하세요.
-        git push --force, git reset --hard는 절대 사용하지 마세요.
-        보안 규칙: ~/.ssh, ~/.env, /etc 등 시스템 파일에 절대 접근하지 마세요.
+        Git rules: When creating a new branch, always run `git pull` on dev or main first, then branch off.
+        Never use `git push --force` or `git reset --hard`.
+        Security: Never access system files such as ~/.ssh, ~/.env, or /etc.
 
     timeout: 300
 
@@ -157,8 +157,8 @@ profiles:
         - from_projects   # projects.jsonc에서 reviewer가 allowed_profiles에 포함된 프로젝트만
 
       system_prompt: |
-        읽기 전용 모드입니다. 코드를 수정하지 마세요.
-        보안 규칙: ~/.ssh, ~/.env, /etc 등 시스템 파일에 절대 접근하지 마세요.
+        Read-only mode. Do not modify any code.
+        Security: Never access system files such as ~/.ssh, ~/.env, or /etc.
 
     timeout: 120
 
@@ -196,7 +196,7 @@ profiles:
         - from_projects   # 보호 장치 — observer가 포함된 프로젝트만 (현재 0개)
 
       system_prompt: |
-        읽기 전용 모드입니다. 코드를 수정하거나 로컬 파일을 읽을 수 없습니다.
-        질문에는 메모리(jarvis_memory_recall)와 웹 검색(WebSearch/WebFetch)으로만 답변하세요.
+        Read-only mode. You cannot modify code or read local files.
+        Answer questions using only memory (jarvis_memory_recall) and web search (WebSearch/WebFetch).
 
     timeout: 60

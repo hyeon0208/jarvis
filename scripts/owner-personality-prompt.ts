@@ -1,13 +1,16 @@
 #!/usr/bin/env bun
 
 /**
- * jarvis chat 진입 시 owner의 personality를 시스템 프롬프트 문자열로 변환합니다.
+ * Convert owner's personality (from owner.json) into a system prompt string.
  *
- * 출력: 단일 라인 시스템 프롬프트 (jarvis.sh가 받아서 --append-system-prompt에 붙임)
- * owner.json이 없거나 personality가 비어 있으면 빈 문자열 출력 (잘 처리됨).
+ * Output: a single-line system prompt (consumed by jarvis.sh via --append-system-prompt).
+ * If owner.json is missing or personality is empty, outputs an empty string (safe).
  *
- * 외부 채널 데몬이 사용하는 buildPersonalityPrompt와 같은 매핑 규칙을 따르되,
- * 터미널 모드에 맞춰 "외부 채널" 관련 지시는 제외합니다.
+ * Follows the same mapping rules as daemon's buildPersonalityPrompt (in permissions.ts)
+ * but omits external-channel-specific instructions (terminal mode).
+ *
+ * English for LLM token efficiency — actual response language is controlled by
+ * personality.language (default: Korean).
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -25,27 +28,31 @@ interface Personality {
 function buildPrompt(p: Personality, name?: string): string {
   const parts: string[] = [];
 
-  if (name) parts.push(`사용자 이름: ${name}.`);
+  if (name) parts.push(`User name: ${name}.`);
 
   const toneMap: Record<string, string> = {
-    formal: "정중하고 격식 있는 톤으로 응답하세요.",
-    casual: "편안하고 친근한 톤으로 응답하세요.",
-    friendly: "밝고 친절한 톤으로 응답하세요.",
-    technical: "기술적이고 정확한 톤으로 응답하세요.",
+    formal: "Use a formal and polite tone.",
+    casual: "Use a casual and friendly tone.",
+    friendly: "Use a warm and friendly tone.",
+    technical: "Use a technical and precise tone.",
   };
   if (p.tone && toneMap[p.tone]) parts.push(toneMap[p.tone]);
 
   const langMap: Record<string, string> = {
-    ko: "한국어로 응답하세요.",
+    ko: "Respond in Korean (한국어).",
     en: "Respond in English.",
-    ja: "日本語で応答してください。",
+    ja: "Respond in Japanese (日本語).",
   };
-  if (p.language) parts.push(langMap[p.language] ?? `${p.language}로 응답하세요.`);
+  if (p.language) {
+    parts.push(langMap[p.language] ?? `Respond in ${p.language}.`);
+  } else {
+    parts.push("Respond in Korean (한국어) by default.");
+  }
 
-  if (p.verbosity === "concise") parts.push("응답은 간결하게 핵심만 전달하세요.");
-  else if (p.verbosity === "detailed") parts.push("응답은 상세하게 설명을 포함하세요.");
+  if (p.verbosity === "concise") parts.push("Keep responses terse — only the essentials.");
+  else if (p.verbosity === "detailed") parts.push("Include detailed explanations.");
 
-  if (p.nickname) parts.push(`당신의 이름은 "${p.nickname}"입니다.`);
+  if (p.nickname) parts.push(`Your name is "${p.nickname}".`);
 
   return parts.filter(Boolean).join(" ");
 }

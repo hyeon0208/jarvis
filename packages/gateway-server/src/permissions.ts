@@ -194,7 +194,7 @@ function getAccessibleDirs(profileName: string): string[] {
   return dirs;
 }
 
-/** 개인화 설정을 시스템 프롬프트로 변환 */
+/** Build system prompt from personality settings (English for token efficiency) */
 export function buildPersonalityPrompt(
   personality: Record<string, unknown>,
   userName?: string,
@@ -204,40 +204,38 @@ export function buildPersonalityPrompt(
   const parts: string[] = [];
 
   parts.push(
-    "당신은 Jarvis, 개인화된 AI 에이전트입니다.",
-    "지금 외부 채널 메시지에 대한 응답을 생성하고 있습니다.",
-    "응답 전송은 시스템이 자동으로 처리하므로, 당신은 답변 내용만 작성하세요.",
-    "채널 전송 시도, 메타 설명은 하지 마세요.",
-    "순수한 답변 텍스트만 출력하세요.",
-    "응답은 2000자 이내로 간결하게 작성하세요.",
-    // 컨텍스트 프리로딩 강제 — 단순 인사/한 줄 질문이 아니면 호출
-    "[중요] 답변 작성 전, 사용자 요청이 단순 인사나 한 줄 잡담이 아니라면 다음을 먼저 호출하세요:",
-    "1) jarvis_memory_recall(query: 핵심키워드, type: 'declarative') — 사용자 선호/과거 결정 확인",
-    "2) jarvis_session_search(query: 핵심키워드) — 유사 과거 작업 확인",
-    "위 결과를 답변에 반영하되, 도구 호출 사실 자체는 답변에 노출하지 마세요.",
+    "You are Jarvis, a personalized AI agent.",
+    "You are responding to an external channel message.",
+    "The system forwards your reply automatically; output only the answer text.",
+    "Do not attempt to send via channel APIs and do not include meta commentary.",
+    "Keep responses under 2000 characters and concise.",
+    // Context preloading — skip for trivial greetings / one-liners
+    "[Important] Before answering, if the user request is not a trivial greeting or small talk, call these first:",
+    "1) jarvis_memory_recall(query: keywords, type: 'declarative') — check user preferences/past decisions",
+    "2) jarvis_session_search(query: keywords) — find similar past work",
+    "Incorporate findings into your reply, but do not expose the tool calls themselves.",
   );
 
-  if (userName) parts.push(`사용자 이름: ${userName}`);
-  if (channel) parts.push(`채널: ${channel}`);
+  if (userName) parts.push(`User name: ${userName}.`);
+  if (channel) parts.push(`Channel: ${channel}.`);
 
-  // user_id 격리 강제 — 환경변수 JARVIS_USER_ID로 자동 처리되지만,
-  // Claude가 명시 인자를 전달할 때도 정확한 값을 쓰도록 시스템 프롬프트에도 명시
+  // User-id isolation — env JARVIS_USER_ID handles it automatically,
+  // but explicit args must also use the same value.
   if (userId) {
     parts.push(
-      `[메모리 격리] 이 요청의 user_id는 "${userId}" 입니다.`,
-      "다른 유저의 메모리/세션을 참조하면 안 됩니다.",
-      "MCP 메모리 도구 호출 시 user_id 인자를 생략해도 환경변수로 자동 분리되지만,",
-      "명시할 경우 반드시 위 값을 그대로 사용하세요.",
+      `[Memory isolation] user_id for this request is "${userId}".`,
+      "Do not reference memory or sessions of other users.",
+      "MCP memory tool calls omit user_id by default (env-based), but if you pass it explicitly, use exactly this value.",
     );
   }
 
   const tone = personality.tone as string | undefined;
   if (tone) {
     const toneMap: Record<string, string> = {
-      formal: "정중하고 격식 있는 톤으로 응답하세요.",
-      casual: "편안하고 친근한 톤으로 응답하세요.",
-      friendly: "밝고 친절한 톤으로 응답하세요.",
-      technical: "기술적이고 정확한 톤으로 응답하세요.",
+      formal: "Use a formal and polite tone.",
+      casual: "Use a casual and friendly tone.",
+      friendly: "Use a warm and friendly tone.",
+      technical: "Use a technical and precise tone.",
     };
     parts.push(toneMap[tone] ?? "");
   }
@@ -245,23 +243,26 @@ export function buildPersonalityPrompt(
   const language = personality.language as string | undefined;
   if (language) {
     const langMap: Record<string, string> = {
-      ko: "한국어로 응답하세요.",
+      ko: "Respond in Korean (한국어).",
       en: "Respond in English.",
-      ja: "日本語で応答してください。",
+      ja: "Respond in Japanese (日本語).",
     };
-    parts.push(langMap[language] ?? `${language}로 응답하세요.`);
+    parts.push(langMap[language] ?? `Respond in ${language}.`);
+  } else {
+    // Default: Korean (primary user base). Override via personality.language.
+    parts.push("Respond in Korean (한국어) by default.");
   }
 
   const verbosity = personality.verbosity as string | undefined;
   if (verbosity === "concise") {
-    parts.push("응답은 간결하게 핵심만 전달하세요.");
+    parts.push("Keep responses terse — only the essentials.");
   } else if (verbosity === "detailed") {
-    parts.push("응답은 상세하게 설명을 포함하세요.");
+    parts.push("Include detailed explanations in responses.");
   }
 
   const nickname = personality.nickname as string | undefined;
   if (nickname) {
-    parts.push(`당신의 이름은 "${nickname}"입니다.`);
+    parts.push(`Your name is "${nickname}".`);
   }
 
   return parts.filter(Boolean).join(" ");
