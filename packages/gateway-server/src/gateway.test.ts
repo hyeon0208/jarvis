@@ -102,3 +102,67 @@ describe("Cron Job Parsing", () => {
     expect(typeof addCronJob).toBe("function");
   });
 });
+
+describe("Claude Session Handle", () => {
+  // 테스트 user_id는 실제 파일을 건드리므로 고유하게 + 테스트 후 정리
+  const TEST_USER = "test:claude-session-lifecycle";
+
+  const cleanup = async () => {
+    const { unlinkSync, existsSync } = await import("node:fs");
+    const { userFilePath } = await import("./auth.js");
+    const path = userFilePath(TEST_USER);
+    if (existsSync(path)) unlinkSync(path);
+  };
+
+  test("첫 호출: 새 UUID + started=false (--session-id 사용)", async () => {
+    await cleanup();
+    const { getOrCreateClaudeSessionId } = await import("./auth.js");
+
+    const handle = getOrCreateClaudeSessionId(TEST_USER);
+    expect(handle.session_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(handle.started).toBe(false);
+    await cleanup();
+  });
+
+  test("두 번째 호출: 같은 UUID + started=false (아직 mark 전)", async () => {
+    await cleanup();
+    const { getOrCreateClaudeSessionId } = await import("./auth.js");
+
+    const h1 = getOrCreateClaudeSessionId(TEST_USER);
+    const h2 = getOrCreateClaudeSessionId(TEST_USER);
+    expect(h2.session_id).toBe(h1.session_id);
+    expect(h2.started).toBe(false);
+    await cleanup();
+  });
+
+  test("markSessionStarted 이후: started=true (--resume 사용)", async () => {
+    await cleanup();
+    const { getOrCreateClaudeSessionId, markClaudeSessionStarted } = await import("./auth.js");
+
+    const h1 = getOrCreateClaudeSessionId(TEST_USER);
+    markClaudeSessionStarted(TEST_USER);
+    const h2 = getOrCreateClaudeSessionId(TEST_USER);
+    expect(h2.session_id).toBe(h1.session_id); // 같은 UUID
+    expect(h2.started).toBe(true);              // 하지만 resume 모드
+    await cleanup();
+  });
+
+  test("/clear (reset): UUID 삭제 + started=false", async () => {
+    await cleanup();
+    const { getOrCreateClaudeSessionId, markClaudeSessionStarted, resetClaudeSessionId } =
+      await import("./auth.js");
+
+    const h1 = getOrCreateClaudeSessionId(TEST_USER);
+    markClaudeSessionStarted(TEST_USER);
+
+    const previous = resetClaudeSessionId(TEST_USER);
+    expect(previous).toBe(h1.session_id);
+
+    const h2 = getOrCreateClaudeSessionId(TEST_USER);
+    expect(h2.session_id).not.toBe(h1.session_id); // 새 UUID
+    expect(h2.started).toBe(false);                // 새로 시작
+    await cleanup();
+  });
+});

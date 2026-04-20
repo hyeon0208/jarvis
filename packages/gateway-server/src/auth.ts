@@ -44,7 +44,7 @@ function savePendingPairings(pairings: PairingRequest[]): void {
 }
 
 /** 유저 설정 파일 경로 */
-function userFilePath(userId: string): string {
+export function userFilePath(userId: string): string {
   // 파일명에 안전한 문자만 사용
   const safeId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
   return join(USERS_DIR, `${safeId}.json`);
@@ -177,49 +177,88 @@ export function updateUserConfig(
 }
 
 /**
- * Claude 세션 ID를 user_id별로 매핑 관리합니다.
+ * Claude 세션 핸들 — user_id별 대화 컨텍스트 관리.
  *
- * 목적: claude -p는 매 호출마다 새 세션이라 이전 대화를 잊습니다.
- *       --session-id <UUID>를 같은 값으로 다시 호출하면 claude가 이전 대화를 이어갑니다.
- *       이 함수가 user_id별로 영속적인 UUID를 1:1 매핑해서 보관합니다.
+ * Claude CLI의 특성:
+ * - `--session-id <UUID>`: 새 세션 생성 (이미 존재하는 UUID면 "already in use" 에러)
+ * - `--resume <UUID>`: 기존 세션에 이어붙이기
  *
- * - 처음 호출이면 새 UUID 생성 후 user 파일에 저장
- * - 이미 있으면 기존 UUID 반환
- * - 저장 위치: ~/.jarvis/users/{safe-user-id}.json의 claude_session_id 필드
+ * 따라서 같은 user의 첫 호출과 이후 호출에 다른 플래그를 써야 합니다.
+ * `started` 플래그로 이 상태를 추적합니다.
  */
-export function getOrCreateClaudeSessionId(userId: string): string {
-  const config = loadUserConfig(userId);
-  if (config && typeof config.claude_session_id === "string" && config.claude_session_id) {
-    return config.claude_session_id;
-  }
-
-  // node:crypto의 randomUUID는 RFC 4122 v4 UUID를 생성 (claude --session-id 요구 형식)
-  const newId = randomUUID();
-  if (config) {
-    updateUserConfig(userId, { claude_session_id: newId });
-  } else {
-    // user 파일 자체가 없는 경우 (페어링 직후 등): 생성
-    writeFileSync(
-      userFilePath(userId),
-      JSON.stringify({ user_id: userId, claude_session_id: newId }, null, 2),
-    );
-  }
-  return newId;
+export interface ClaudeSessionHandle {
+  session_id: string;
+  started: boolean; // false면 --session-id로 새로 시작, true면 --resume으로 이어감
 }
 
 /**
- * Claude 세션 ID를 초기화합니다 (대화 컨텍스트 리셋).
+ * Claude 세션 핸들을 반환합니다 (없으면 새 UUID 생성).
  *
- * - 기존 UUID를 삭제 → 다음 메시지 처리 시 getOrCreateClaudeSessionId가 새 UUID 생성
- * - claude의 이전 세션 jsonl 파일은 그대로 두고, 새 세션부터 시작
- * - 메모리(jarvis_memory) 데이터는 영향 없음 (별개 시스템)
+ * - 파일에 session_id가 없음 → 새 UUID 생성 후 저장, started=false
+ * - 파일에 session_id가 있고 started=true → 기존 UUID + started=true
+ * - 파일에 session_id가 있지만 started=false (생성만 됐고 spawn 아직) → 그대로 반환
  *
- * 반환: 직전에 사용 중이던 UUID (없었으면 null)
+ * 저장: ~/.jarvis/users/{safe-user-id}.json
+ *       { claude_session_id: "uuid", claude_session_started: true/false }
+ */
+export function getOrCreateClaudeSessionId(userId: string): ClaudeSessionHandle {
+  const config = loadUserConfig(userId);
+
+  if (config && typeof config.claude_session_id === "string" && config.claude_session_id) {
+    // 마이그레이션: claude_session_started 필드가 없는 레거시 데이터는
+    // 이미 claude에서 세션이 생성됐을 가능성이 높으므로 started=true로 간주
+    // (--session-id 재사용 시 "already in use" 에러 방지)
+    const started =
+      config.claude_session_started === undefined
+        ? true
+        : Boolean(config.claude_session_started);
+    return {
+      session_id: config.claude_session_id,
+      started,
+    };
+  }
+
+  // 새 UUID 발급
+  const newId = randomUUID();
+  if (config) {
+    updateUserConfig(userId, {
+      claude_session_id: newId,
+      claude_session_started: false,
+    });
+  } else {
+    writeFileSync(
+      userFilePath(userId),
+      JSON.stringify(
+        { user_id: userId, claude_session_id: newId, claude_session_started: false },
+        null,
+        2,
+      ),
+    );
+  }
+  return { session_id: newId, started: false };
+}
+
+/**
+ * 세션이 실제로 claude에 의해 생성됨을 표시합니다 (첫 spawn 성공 후 호출).
+ * 이후부터는 --resume을 사용해야 합니다.
+ */
+export function markClaudeSessionStarted(userId: string): void {
+  const config = loadUserConfig(userId);
+  if (!config) return;
+  updateUserConfig(userId, { claude_session_started: true });
+}
+
+/**
+ * Claude 세션을 초기화합니다 (/clear).
+ * - UUID 삭제 + started=false로 리셋 → 다음 호출이 --session-id로 새 세션 시작
  */
 export function resetClaudeSessionId(userId: string): string | null {
   const config = loadUserConfig(userId);
   if (!config) return null;
   const previous = (config.claude_session_id as string | undefined) ?? null;
-  updateUserConfig(userId, { claude_session_id: null });
+  updateUserConfig(userId, {
+    claude_session_id: null,
+    claude_session_started: false,
+  });
   return previous;
 }

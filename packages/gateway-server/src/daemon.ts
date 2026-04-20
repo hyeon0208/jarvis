@@ -15,7 +15,11 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync } fr
 import { join } from "node:path";
 import { routeMessage, type IncomingMessage } from "./router.js";
 import { buildClaudeArgs, buildPersonalityPrompt } from "./permissions.js";
-import { loadUserConfig, getOrCreateClaudeSessionId } from "./auth.js";
+import {
+  loadUserConfig,
+  getOrCreateClaudeSessionId,
+  markClaudeSessionStarted,
+} from "./auth.js";
 import { addCronJob, listCronJobs, deleteCronJob, toggleCronJob } from "./cron.js";
 // worktree는 workflow.ts가 관리 (router → workflow → worktree)
 
@@ -103,15 +107,22 @@ async function executeWithClaude(
   });
 
   // 대화 컨텍스트 격리:
-  //   user_id별로 영속적인 UUID를 1:1 매핑해서 --session-id로 전달
-  //   → claude가 이전 대화 jsonl을 자동 복원해서 컨텍스트 유지
-  //   → 다른 유저는 다른 UUID라 메모리/디렉토리 격리와 일관
-  //   /clear 같은 명령으로 user 파일의 claude_session_id를 null로 초기화하면
-  //   다음 호출에서 새 UUID 발급되어 새 대화 시작
-  const claudeSessionId = getOrCreateClaudeSessionId(userId);
-  args.push("--session-id", claudeSessionId);
+  //   user_id별로 영속적인 UUID를 1:1 매핑
+  //   첫 호출: --session-id <UUID> (새 세션 생성)
+  //   이후:   --resume <UUID>    (기존 세션 이어가기)
+  //   /clear: UUID 리셋 → 다음 호출이 다시 --session-id로 시작
+  const sessionHandle = getOrCreateClaudeSessionId(userId);
+  if (sessionHandle.started) {
+    args.push("--resume", sessionHandle.session_id);
+  } else {
+    args.push("--session-id", sessionHandle.session_id);
+  }
 
-  log("INFO", `claude 실행: profile=${profileName}, session=${claudeSessionId.slice(0, 8)}..., dir=${workDir ?? "sandbox"}, prompt=${prompt.slice(0, 80)}...`);
+  const sessionMode = sessionHandle.started ? "resume" : "new";
+  log(
+    "INFO",
+    `claude 실행: profile=${profileName}, session=${sessionHandle.session_id.slice(0, 8)}... (${sessionMode}), dir=${workDir ?? "sandbox"}, prompt=${prompt.slice(0, 80)}...`,
+  );
 
   return new Promise((resolve) => {
     // 사용자별 메모리 격리 핵심:
@@ -155,6 +166,11 @@ async function executeWithClaude(
         log("ERROR", `claude 종료 코드=${code}, stderr=${stderr.slice(0, 200)}`);
         resolve(`오류가 발생했습니다. (코드: ${code})`);
       } else {
+        // 정상 종료 → 세션이 실제로 생성됨(또는 재사용됨)
+        // 첫 호출이었다면 이 시점부터 started=true로 전환 (다음 호출은 --resume)
+        if (!sessionHandle.started) {
+          markClaudeSessionStarted(userId);
+        }
         log("INFO", `claude 완료: ${stdout.length}자 응답`);
         resolve(stdout.trim() || "응답이 비어있습니다.");
       }
