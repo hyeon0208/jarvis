@@ -202,7 +202,7 @@ owner:
 2. **`--add-dir` 화이트리스트** — `add_dirs: [from_projects]`로 명시한 디렉토리만 추가 접근 가능. `projects.jsonc`의 `allowed_profiles`로 프로필별 권한 결정.
 3. **도구 제한** — `allowed_tools`/`disallowed_tools`로 `Read`/`Write`/`Bash` 등 가능 여부 자체를 제어.
 
-> **owner 예외**: `skip_permissions: true`인 프로필은 도구/디렉토리 제한을 우회하는 게 의도(본인 전용)이므로 cwd도 홈 디렉토리로 설정됩니다. 즉 owner만 `ls -al ~` 같은 홈 탐색이 가능합니다. 다른 팀원에게 owner 프로필을 절대 부여하지 마세요.
+> **owner 예외**: `skip_permissions: true`인 프로필은 도구 제한을 우회 + `--add-dir $HOME`이 자동 추가되어 홈 전체 접근이 가능합니다 (cwd는 세션 일관성을 위해 샌드박스 유지). 즉 owner만 `ls -al ~` 같은 홈 탐색이 가능합니다. 다른 팀원에게 owner 프로필을 절대 부여하지 마세요.
 
 자세히: [02. 아키텍처 — 보안 계층](02-architecture.md#보안-계층)
 

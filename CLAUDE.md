@@ -53,7 +53,8 @@
 |------|---------|------|
 | 메모리 격리 (장기) | `JARVIS_USER_ID` 환경변수 → MCP 서버 자동 fallback | `packages/memory-server/src/memory-config.ts:resolveUserId` |
 | 대화 컨텍스트 (단기) | user_id별 영속 UUID → `claude --session-id` 매 호출 시 주입 | `packages/gateway-server/src/auth.ts:getOrCreateClaudeSessionId` |
-| 파일시스템 격리 | `cwd: ~/.jarvis/sandboxes/{safe-user-id}/` (빈 디렉토리). owner 프로필은 예외로 cwd=홈 | `packages/gateway-server/src/daemon.ts:ensureSandbox` |
+| 파일시스템 격리 | `cwd: ~/.jarvis/sandboxes/{safe-user-id}/` (빈 디렉토리, 모든 프로필 공통 — 세션 일관성) | `packages/gateway-server/src/daemon.ts:ensureSandbox` |
+| owner 홈 접근 | `skip_permissions=true`면 `--add-dir $HOME` 자동 추가 | `packages/gateway-server/src/permissions.ts:buildClaudeArgs` |
 | 디렉토리 화이트리스트 | `--add-dir`는 `add_dirs: [from_projects]`로 명시한 곳만 | `packages/gateway-server/src/permissions.ts:buildClaudeArgs` |
 | 도구 권한 | `allowed_tools`/`disallowed_tools` (예: observer는 Read 자체 없음) | `config/profiles.yml` |
 

@@ -14,11 +14,7 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { routeMessage, type IncomingMessage } from "./router.js";
-import {
-  buildClaudeArgs,
-  buildPersonalityPrompt,
-  getProfileConfig,
-} from "./permissions.js";
+import { buildClaudeArgs, buildPersonalityPrompt } from "./permissions.js";
 import {
   loadUserConfig,
   getOrCreateClaudeSessionId,
@@ -135,16 +131,15 @@ async function executeWithClaude(
     // (LLM 자율성 의존 X, OS 프로세스 환경변수로 100% 보장)
     const channelName = userId.includes(":") ? userId.split(":")[0] : "owner";
 
-    // cwd 정책 — 프로필별 분기:
+    // cwd 정책 — 프로필 무관 일관성 (세션 jsonl 경로 안정 목적):
     //   · workDir(예: /dev worktree)이 명시되면 무조건 그쪽
-    //   · owner 프로필 (skip_permissions=true) → 홈 디렉토리 (격리 의도 없음, 본인 전용)
-    //   · 그 외 → 유저별 빈 샌드박스 (홈/시스템 접근 차단)
-    const profileCfg = getProfileConfig(profileName);
-    const isOwner = Boolean(profileCfg?.claude?.skip_permissions);
-    const cwdDir =
-      workDir ??
-      (isOwner ? (process.env.HOME ?? ensureSandbox(userId)) : ensureSandbox(userId));
-    log("INFO", `cwd: ${cwdDir} (${isOwner ? "owner-home" : workDir ? "worktree" : "sandbox"})`);
+    //   · 아니면 항상 user별 샌드박스 (~/.jarvis/sandboxes/{id}/)
+    //   · 프로필별 접근 범위 차등은 --add-dir (permissions.ts:buildClaudeArgs)로 제어
+    //     예: owner는 --add-dir $HOME 자동 추가, 다른 프로필은 from_projects
+    //   · Claude Code는 세션 jsonl을 cwd 해시 기반 경로에 저장하므로
+    //     cwd가 바뀌면 --resume이 "session not found"로 실패함
+    const cwdDir = workDir ?? ensureSandbox(userId);
+    log("INFO", `cwd: ${cwdDir} (${workDir ? "worktree" : "sandbox"})`);
 
     const child = spawn("claude", args, {
       // stdin: "ignore" — prompt는 args로 전달되므로 stdin을 쓰지 않음.

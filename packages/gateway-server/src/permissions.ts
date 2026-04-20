@@ -109,6 +109,16 @@ export function buildClaudeArgs(
   if (claude?.skip_permissions) {
     args.push("--dangerously-skip-permissions");
 
+    // cwd는 일관성을 위해 user별 샌드박스(빈 디렉토리) 고정.
+    // 홈/시스템 접근은 --add-dir로 허용 (owner는 격리 의도 없음).
+    //   · options.projectDir이 있으면 그쪽 우선 (예: /dev worktree)
+    //   · 없으면 $HOME 추가 → owner는 홈 전체 접근 가능
+    if (options?.projectDir) {
+      args.push("--add-dir", options.projectDir);
+    } else if (process.env.HOME) {
+      args.push("--add-dir", process.env.HOME);
+    }
+
     if (claude.model) args.push("--model", claude.model);
     if (claude.effort) args.push("--effort", claude.effort);
 
