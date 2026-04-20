@@ -53,6 +53,8 @@ Owner가 로컬 터미널에서 사용하는 명령입니다.
 | `jarvis project ls\|add\|rm` | 프로젝트 CRUD |
 | `jarvis channel ls\|enable\|disable\|token <name> [value]` | 채널 CRUD |
 | `jarvis user ls\|show\|profile\|rename\|rm <user_id>` | 유저 관리 |
+| `jarvis cron list [user_id]` | cron_jobs 조회 |
+| `jarvis cron run <job_id> [--send]` | 즉시 실행 (결과 터미널 출력, `--send`로 채널 전송도) |
 
 ### 조회/진단
 
@@ -156,6 +158,8 @@ Telegram에서 `/`를 입력하면 자동완성 메뉴가 표시됩니다.
 | `/cron add {스케줄} {작업}` | 크론잡 등록 | 전체 |
 | `/cron list` | 크론잡 목록 | 전체 |
 | `/cron delete {id}` | 크론잡 삭제 | 전체 |
+| `/cron pause {id}` | 크론잡 활성/비활성 토글 | 전체 |
+| `/cron run {id}` | 스케줄 무시하고 즉시 실행 (테스트용) | 전체 |
 
 **실행 메커니즘**: 데몬이 1분 간격으로 모든 유저의 `cron_jobs`를 스캔 → 스케줄 매칭 + `enabled: true` 항목을 `claude -p`로 실행 → 응답을 해당 user의 채널로 자동 전송. 구현: `packages/gateway-server/src/cron-runner.ts` ([06. 메모리 § 단기 컨텍스트](06-memory.md)와 독립적인 별도 기능).
 

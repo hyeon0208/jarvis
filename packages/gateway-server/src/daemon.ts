@@ -189,11 +189,12 @@ async function executeWithClaude(
 }
 
 // --- 크론잡 커맨드 처리 ---
-function handleCronCommand(
+async function handleCronCommand(
   userId: string,
   action: string,
   args: Record<string, string>,
-): string {
+  userConfig?: Record<string, unknown>,
+): Promise<string> {
   switch (action) {
     case "cron_add": {
       const result = addCronJob(userId, args.prompt ?? "");
@@ -215,6 +216,22 @@ function handleCronCommand(
       const result = toggleCronJob(userId, args.job_id ?? "");
       if (!result.success) return "크론잡을 찾을 수 없습니다.";
       return `크론잡 ${result.enabled ? "재개" : "일시 중지"}됨`;
+    }
+    case "cron_run": {
+      // 수동 트리거 — schedule 매칭 건너뛰고 즉시 실행.
+      // 테스트/디버깅 용도. last_run_at은 건드리지 않음 (스케줄 충돌 방지).
+      const jobId = args.job_id ?? "";
+      const jobs = listCronJobs(userId);
+      const job = jobs.find((j) => j.id === jobId);
+      if (!job) return `크론잡을 찾을 수 없습니다: ${jobId}`;
+
+      log("INFO", `[cron] 수동 실행: user=${userId} job=${jobId}`);
+      const personality = userConfig?.personality as Record<string, unknown> | undefined;
+      const userName = (userConfig?.name as string) ?? userId;
+      const profile = (userConfig?.profile as string) ?? "observer";
+      const response = await executeWithClaude(job.prompt, profile, userId, personality, userName);
+      // 응답 자체를 채널 메시지로 반환 → adapter가 그대로 전송
+      return response;
     }
     default:
       return "알 수 없는 크론잡 명령입니다.";
@@ -263,7 +280,12 @@ async function handleMessage(incoming: IncomingMessage): Promise<string> {
     try {
       const cronCmd = JSON.parse(routeResult.response);
       if (cronCmd.action && cronCmd.action.startsWith("cron_")) {
-        return handleCronCommand(incoming.user_id, cronCmd.action, cronCmd.args ?? {});
+        return await handleCronCommand(
+          incoming.user_id,
+          cronCmd.action,
+          cronCmd.args ?? {},
+          userConfig,
+        );
       }
     } catch {
       // 크론 커맨드가 아닌 경우 무시

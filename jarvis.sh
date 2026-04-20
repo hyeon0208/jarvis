@@ -231,6 +231,7 @@ case "${1:-}" in
   project)          shift; bun run "$HOME/jarvis/scripts/project.ts" "$@" ;;
   channel)          shift; bun run "$HOME/jarvis/scripts/channel.ts" "$@" ;;
   user)             shift; bun run "$HOME/jarvis/scripts/user.ts" "$@" ;;
+  cron)             shift; bun run "$HOME/jarvis/scripts/cron.ts" "$@" ;;
   edit-profile)     shift; bun run "$HOME/jarvis/scripts/edit-profile.ts" "$@" ;;
   add-project)      bun run "$HOME/jarvis/scripts/add-project.ts" ;;
   add-channel)      bun run "$HOME/jarvis/scripts/add-channel.ts" ;;
@@ -267,5 +268,6 @@ case "${1:-}" in
     echo "  project add|rm|ls          프로젝트 CRUD"
     echo "  channel ls|enable|disable|token <name> [value]"
     echo "  user ls|show|profile|rename|rm <user_id>"
+    echo "  cron list [user_id] | run <job_id> [--send]  cron_jobs 조회/수동 실행"
     ;;
 esac

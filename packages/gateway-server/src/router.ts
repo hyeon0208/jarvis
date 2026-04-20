@@ -52,6 +52,9 @@ function parseCronCommand(message: string): {
   if (trimmed.startsWith("/cron pause ")) {
     return { action: "cron_pause", args: { job_id: trimmed.slice(12) } };
   }
+  if (trimmed.startsWith("/cron run ")) {
+    return { action: "cron_run", args: { job_id: trimmed.slice(10) } };
+  }
   return null;
 }
 
