@@ -27,6 +27,21 @@ import {
   hasClaudeSessionJsonl,
 } from "../packages/gateway-server/src/auth.js";
 import { createEnabledAdapters } from "../packages/gateway-server/src/adapters/registry.js";
+import { loadEnvFile } from "./lib/config.js";
+
+// daemon.ts와 동일하게 .env를 process.env로 주입
+// (adapter의 isAvailable()이 TELEGRAM_BOT_TOKEN 등을 체크하므로 필수)
+function bootstrapEnv(): void {
+  try {
+    const envVars = loadEnvFile();
+    for (const [key, value] of Object.entries(envVars)) {
+      if (!process.env[key]) process.env[key] = value;
+    }
+  } catch {
+    // .env 없거나 파싱 실패 시에도 CLI 대부분 명령은 동작하므로 통과
+  }
+}
+bootstrapEnv();
 
 const GREEN = "\x1b[32m";
 const YELLOW = "\x1b[33m";
