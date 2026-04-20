@@ -123,6 +123,7 @@ jarvis-gateway (채널 게이트웨이)
 3층: 디렉토리 격리      — cwd 샌드박스(~/.jarvis/sandboxes/{user}) + --add-dir 화이트리스트
                          · cwd가 빈 디렉토리이므로 Read 도구가 홈/시스템 자동 탐색 불가
                          · from_projects 키워드로 projects.jsonc의 allowed_profiles 매핑
+                         · owner 프로필은 예외: skip_permissions=true면 cwd=홈 (본인 전용)
 4층: 비용 제한          — 요청당 $0.5 제한 (owner 제외)
 5층: 시간 제한          — 프로필별 타임아웃 (1~10분)
 6층: 메모리 격리        — JARVIS_USER_ID 환경변수로 채널/유저별 자동 분리

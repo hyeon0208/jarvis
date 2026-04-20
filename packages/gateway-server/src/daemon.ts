@@ -14,7 +14,11 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { routeMessage, type IncomingMessage } from "./router.js";
-import { buildClaudeArgs, buildPersonalityPrompt } from "./permissions.js";
+import {
+  buildClaudeArgs,
+  buildPersonalityPrompt,
+  getProfileConfig,
+} from "./permissions.js";
 import {
   loadUserConfig,
   getOrCreateClaudeSessionId,
@@ -131,12 +135,16 @@ async function executeWithClaude(
     // (LLM 자율성 의존 X, OS 프로세스 환경변수로 100% 보장)
     const channelName = userId.includes(":") ? userId.split(":")[0] : "owner";
 
-    // cwd 샌드박스 강제 — 핵심 격리 장치
-    // workDir(예: /dev worktree)이 명시되면 그쪽, 아니면 유저별 빈 샌드박스
-    // → Read의 기본 cwd가 빈 디렉토리이므로 홈/시스템 파일 자동 접근 차단
-    // → 접근 가능한 디렉토리는 오로지 buildClaudeArgs가 --add-dir로 명시한 것뿐
-    const cwdDir = workDir ?? ensureSandbox(userId);
-    log("INFO", `cwd 샌드박스: ${cwdDir}`);
+    // cwd 정책 — 프로필별 분기:
+    //   · workDir(예: /dev worktree)이 명시되면 무조건 그쪽
+    //   · owner 프로필 (skip_permissions=true) → 홈 디렉토리 (격리 의도 없음, 본인 전용)
+    //   · 그 외 → 유저별 빈 샌드박스 (홈/시스템 접근 차단)
+    const profileCfg = getProfileConfig(profileName);
+    const isOwner = Boolean(profileCfg?.claude?.skip_permissions);
+    const cwdDir =
+      workDir ??
+      (isOwner ? (process.env.HOME ?? ensureSandbox(userId)) : ensureSandbox(userId));
+    log("INFO", `cwd: ${cwdDir} (${isOwner ? "owner-home" : workDir ? "worktree" : "sandbox"})`);
 
     const child = spawn("claude", args, {
       stdio: ["pipe", "pipe", "pipe"],
