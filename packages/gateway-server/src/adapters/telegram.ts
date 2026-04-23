@@ -4,6 +4,7 @@ import type {
   ChannelAdapter,
   ChannelAdapterConfig,
 } from "./types.js";
+import { maskTokens } from "../log-safe.js";
 
 /**
  * Telegram 어댑터
@@ -122,6 +123,7 @@ export class TelegramAdapter implements ChannelAdapter {
 
       // 비동기로 처리 (다음 폴링 차단하지 않음)
       // 에러를 조용히 삼키면 디버깅이 불가능해지므로 stderr로 로그 남김
+      // (fetch err.stack에 토큰이 박힌 URL이 포함될 수 있어 maskTokens 필수)
       onMessage(incoming)
         .then(async (response) => {
           if (response) {
@@ -129,16 +131,14 @@ export class TelegramAdapter implements ChannelAdapter {
               await this.send({ chat_id: incoming.chat_id!, message: response });
             } catch (err) {
               console.error(
-                `[telegram] send 실패 (chat_id=${incoming.chat_id}):`,
-                err instanceof Error ? err.message : err,
+                `[telegram] send 실패 (chat_id=${incoming.chat_id}): ${maskTokens(err)}`,
               );
             }
           }
         })
         .catch((err) => {
           console.error(
-            `[telegram] handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"):`,
-            err instanceof Error ? (err.stack ?? err.message) : err,
+            `[telegram] handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"): ${maskTokens(err)}`,
           );
         });
     }

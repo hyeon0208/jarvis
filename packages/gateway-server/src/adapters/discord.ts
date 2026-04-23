@@ -4,6 +4,7 @@ import type {
   ChannelAdapter,
   ChannelAdapterConfig,
 } from "./types.js";
+import { maskTokens } from "../log-safe.js";
 
 /**
  * Discord 어댑터 (DM + 서버 멘션)
@@ -82,16 +83,14 @@ export class DiscordAdapter implements ChannelAdapter {
           if (response) {
             await message.reply(response).catch((err: unknown) =>
               console.error(
-                `[discord] reply 실패 (channel=${message.channelId}):`,
-                err instanceof Error ? err.message : err,
+                `[discord] reply 실패 (channel=${message.channelId}): ${maskTokens(err)}`,
               ),
             );
           }
         })
         .catch((err) => {
           console.error(
-            `[discord] handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"):`,
-            err instanceof Error ? (err.stack ?? err.message) : err,
+            `[discord] handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"): ${maskTokens(err)}`,
           );
         });
     });

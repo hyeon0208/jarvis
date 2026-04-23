@@ -33,6 +33,7 @@ import {
   markThreadSessionStarted,
 } from "./auth.js";
 import { addCronJob, listCronJobs, deleteCronJob, toggleCronJob } from "./cron.js";
+import { maskTokens } from "./log-safe.js";
 // worktree는 workflow.ts가 관리 (router → workflow → worktree)
 
 // --- 설정 ---
@@ -64,7 +65,9 @@ function ensureSandbox(userId: string): string {
 // --- 로깅 ---
 function log(level: string, message: string): void {
   const timestamp = new Date().toISOString();
-  const line = `[${timestamp}] [${level}] ${message}`;
+  // 어댑터가 URL에 토큰을 직접 박아놓고 fetch 실패 시 err.stack에 URL 포함될 수
+  // 있어, 로그 기록 직전 한 번 필터링 (log-safe.ts:maskTokens)
+  const line = `[${timestamp}] [${level}] ${maskTokens(message)}`;
 
   try {
     if (!existsSync(JARVIS_DIR)) mkdirSync(JARVIS_DIR, { recursive: true });

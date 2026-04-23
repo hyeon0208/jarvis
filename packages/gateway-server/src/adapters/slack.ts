@@ -4,6 +4,7 @@ import type {
   ChannelAdapter,
   ChannelAdapterConfig,
 } from "./types.js";
+import { maskTokens } from "../log-safe.js";
 
 /**
  * Slack 어댑터 (DM + 채널 멘션)
@@ -80,15 +81,13 @@ export class SlackAdapter implements ChannelAdapter {
           if (response) {
             await say(response).catch((err: unknown) =>
               console.error(
-                `[slack] DM say 실패 (user=${message.user}):`,
-                err instanceof Error ? err.message : err,
+                `[slack] DM say 실패 (user=${message.user}): ${maskTokens(err)}`,
               ),
             );
           }
         } catch (err) {
           console.error(
-            `[slack] DM handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"):`,
-            err instanceof Error ? (err.stack ?? err.message) : err,
+            `[slack] DM handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"): ${maskTokens(err)}`,
           );
         }
       });
@@ -119,15 +118,13 @@ export class SlackAdapter implements ChannelAdapter {
               thread_ts: this.threadReplies ? (event.thread_ts ?? event.ts) : undefined,
             }).catch((err: unknown) =>
               console.error(
-                `[slack] mention say 실패 (user=${event.user}):`,
-                err instanceof Error ? err.message : err,
+                `[slack] mention say 실패 (user=${event.user}): ${maskTokens(err)}`,
               ),
             );
           }
         } catch (err) {
           console.error(
-            `[slack] mention handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"):`,
-            err instanceof Error ? (err.stack ?? err.message) : err,
+            `[slack] mention handleMessage 실패 (user=${incoming.user_id}, msg="${incoming.message.slice(0, 60)}"): ${maskTokens(err)}`,
           );
         }
       });
@@ -144,8 +141,7 @@ export class SlackAdapter implements ChannelAdapter {
       ...(out.reply_to ? { thread_ts: out.reply_to } : {}),
     }).catch((err: unknown) =>
       console.error(
-        `[slack] send 실패 (channel=${out.chat_id}):`,
-        err instanceof Error ? err.message : err,
+        `[slack] send 실패 (channel=${out.chat_id}): ${maskTokens(err)}`,
       ),
     );
   }
