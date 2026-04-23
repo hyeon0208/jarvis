@@ -12,7 +12,7 @@
 - **로컬 터미널 대화** (`jarvis chat`) + **외부 채널 협업** (Telegram/Discord/Slack 데몬)을 동시에 지원
 - **3계층 메모리** (선언적/절차적/세션 + FTS5) + **Dreaming** (비동기 정리)
 - **자율 스킬 생성** + **IntentGate** (의도 분류 후 컨텍스트 프리로딩)
-- **프로필 기반 권한 격리** (`owner` 고정 + `developer/reviewer/observer` 예시)
+- **프로필 기반 권한 격리** (`owner` 고정 + `developer/reviewer/observer/macho` 예시 — macho는 외부 전용 "상남자" 페르소나)
 
 영감: Hermes Agent (자기 학습) · OpenClaw (멀티채널) · Oh My OpenAgent (IntentGate)
 

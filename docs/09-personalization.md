@@ -13,7 +13,7 @@ Jarvis는 **유저마다** 에이전트의 말투, 언어, 상세도, 호칭을 
 4. [팀원 설정](#4-팀원-설정-owner가-관리)
 5. [팀원 본인이 확인](#5-팀원-본인이-확인)
 6. [내부 동작 (시스템 프롬프트 변환)](#6-내부-동작-시스템-프롬프트-변환)
-7. [프로필 기본 personality (현재 미구현)](#7-프로필-기본-personality-현재-미구현)
+7. [프로필 기본 personality](#7-프로필-기본-personality)
 
 ---
 
@@ -268,21 +268,43 @@ Owner의 터미널 대화(`jarvis chat`)는 **데몬을 거치지 않으므로**
 
 ---
 
-## 7. 프로필 기본 personality (현재 미구현)
+## 7. 프로필 기본 personality
 
-설계상 `profiles.yml`의 각 프로필에 기본 personality를 둘 수 있는 필드가 타입에 정의되어 있고, `mergePersonality()` 함수도 작성되어 있습니다 ([permissions.ts:244](../packages/gateway-server/src/permissions.ts)). 예상 동작:
+`profiles.yml`의 각 프로필에 `personality` 블록을 두면 해당 프로필을 받은 **전원에게 자동 적용**됩니다.
+유저 JSON에도 personality가 있으면 유저 설정이 우선합니다 (`{프로필 기본} + {유저 개별} = 최종 personality`).
+
+### 동작 흐름
+
+1. `daemon.ts:executeWithClaude` 진입 → `mergePersonality(userPersonality, profileName)` 호출 (구현: [permissions.ts:312](../packages/gateway-server/src/permissions.ts))
+2. 병합된 personality를 `buildPersonalityPrompt`에 전달 → 시스템 프롬프트로 주입
+3. Claude CLI가 해당 페르소나로 응답
+
+### 실제 사용 예시: `macho` 프로필
+
+`macho` 프로필은 이 메커니즘으로 **"상남자" 페르소나**를 전원에게 강제합니다:
 
 ```yaml
-# config/profiles.yml (구상)
-developer:
-  personality:     # 프로필 기본값
-    tone: technical
-    verbosity: detailed
+# config/profiles.yml
+macho:
+  description: "상남자 — 외부 검색/API/(후속)브라우저, 로컬 접근 X"
+  claude:
+    allowed_tools: [WebSearch, WebFetch, "Bash(curl:*)", ...]
+    system_prompt: |
+      You are the external-facing assistant. No local file access.
+  personality:              # ← 프로필 기본 personality
+    tone: casual
+    verbosity: normal
+    system_prompt_extra: |
+      Persona: 상남자. Be direct, realistic, and decisive. ...
+      Dislikes: 마라탕 and sweets/desserts. ...
+      Taboo word: never say "졸려" when tired. Always say "잠온다" instead.
 ```
 
-→ 실행 시 `{프로필 기본} + {유저 개별} = 최종 personality` (유저 개별이 우선).
+`jarvis pair approve <code> macho`로 승인된 사용자는 본인 JSON에 personality가 없어도 위 값이 자동으로 적용됩니다. 일부 필드만 오버라이드하려면 `~/.jarvis/users/{user_id}.json`에 해당 필드만 써 넣으면 됩니다 (나머지는 프로필 기본값 상속).
 
-**현 상태**: `mergePersonality()` 함수는 정의되어 있지만 `daemon.ts`에서 호출하지 않습니다. 데몬은 유저 파일의 personality만 그대로 사용합니다. 프로필별 기본값 기능을 쓰려면 추가 구현이 필요합니다 (`daemon.ts`의 `executeWithClaude`에서 `buildPersonalityPrompt` 호출 전에 `mergePersonality(personality, profileName)` 적용).
+### 기존 프로필 (`owner`/`developer`/`reviewer`/`observer`)은?
+
+기본 저장소의 이 4개 프로필에는 `personality` 블록이 없으므로 기존 동작(유저 JSON 값만 사용) 그대로입니다. 필요하면 해당 프로필에도 `personality` 블록을 추가할 수 있습니다 (예: `developer`에 `tone: technical` 기본값).
 
 ---
 

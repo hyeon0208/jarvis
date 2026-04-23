@@ -93,8 +93,9 @@ jarvis doctor                  # Slack 토큰까지 라이브 체크 (auth.test 
 3. **첫 메시지는 페어링 코드 발급** — 코드를 받으면:
    ```bash
    jarvis pair list                      # 대기 코드 확인
-   jarvis pair approve A1B2C3 owner      # 본인이면 owner 프로필
+   jarvis pair approve A1B2C3 owner      # 본인이면 owner 프로필 (로컬 전체 접근)
    jarvis pair approve A1B2C3 developer  # 팀원이면 developer 등
+   jarvis pair approve A1B2C3 macho      # 외부 검색/API + "상남자" 페르소나 (로컬 접근 X)
    ```
 4. 이후 DM부터는 즉시 Jarvis가 응답
 
@@ -107,6 +108,8 @@ jarvis doctor                  # Slack 토큰까지 라이브 체크 (auth.test 
 ```
 
 이후 `@Jarvis 질문 내용`으로 호출. 응답은 스레드에 달림 (`thread_replies: true` 기본).
+
+**스레드 격리**: 채널 본문에 `@Jarvis`로 멘션하면 그 메시지를 루트로 한 스레드 안에만 답변이 달립니다. 기존 스레드 안에서 `@Jarvis`를 추가로 부르면 **그 스레드 안에서만** 답변이 이어집니다 — 채널 본문으로 튀어나오지 않습니다. 구현 근거: [`adapters/slack.ts:L110,L119`](../packages/gateway-server/src/adapters/slack.ts) — `app_mention` 이벤트가 `event.thread_ts ?? event.ts`로 스레드 ID를 확정한 뒤 `chat.postMessage({ thread_ts })`로 전송.
 
 ---
 

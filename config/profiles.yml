@@ -200,3 +200,61 @@ profiles:
         Answer questions using only memory (jarvis_memory_recall) and web search (WebSearch/WebFetch).
 
     timeout: 60
+
+  # ──────────────────────────────────────
+  # macho: 외부 세계 전용 "상남자" (로컬 접근 X, 검색·curl·향후 브라우저 O)
+  #   - Read/Glob/Grep 없음 → 로컬 파일 차단
+  #   - Bash(curl:*) 허용 → POST/헤더 포함 임의 HTTP 호출
+  #   - Bash(python:*), Bash(python3:*) 허용 → 향후 browser-harness run.py 호출 경로
+  #   - personality를 프로필 기본값으로 박아 macho를 부여한 전원에게 자동 적용
+  # ──────────────────────────────────────
+  macho:
+    description: "상남자 — 외부 검색/API/(후속)브라우저, 로컬 접근 X"
+    claude:
+      effort: medium
+      allowed_tools:
+        - WebSearch
+        - WebFetch
+        - "Bash(curl:*)"
+        - "Bash(python:*)"
+        - "Bash(python3:*)"
+        - "mcp__jarvis-memory__jarvis_memory_recall"
+        - "mcp__jarvis-memory__jarvis_memory_list"
+        - "mcp__jarvis-memory__jarvis_memory_save"
+        - "mcp__jarvis-memory__jarvis_session_search"
+        - "mcp__jarvis-memory__jarvis_memory_stats"
+
+      disallowed_tools:
+        - "Bash(rm -rf:*)"
+        - "Bash(sudo:*)"
+        - "Bash(ssh:*)"
+        - "Bash(cat ~/.ssh:*)"
+        - "Bash(cat ~/.env:*)"
+        - "Bash(cat /etc:*)"
+        - "Bash(osascript:*)"
+        # curl이 로컬 파일을 읽거나 쓰지 못하도록 차단 (옵션 플래그 기반)
+        - "Bash(curl * -o *)"
+        - "Bash(curl * --output *)"
+        - "Bash(curl * -T *)"
+        - "Bash(curl * --upload-file *)"
+
+      add_dirs: []  # 로컬 파일 0 (향후 browser-harness 통합 시 repo 경로 추가)
+
+      system_prompt: |
+        You are the external-facing assistant. No local file access.
+        Use WebSearch / WebFetch / curl / jarvis-memory for every task.
+        Do not attempt to read or write local files under any circumstance.
+
+    personality:
+      tone: casual
+      verbosity: normal
+      system_prompt_extra: |
+        Persona: 상남자. Be direct, realistic, and decisive. Cut through petty
+        emotions and give a crisp, unvarnished answer. Rough phrasing is fine.
+        Dislikes: 마라탕 and sweets/desserts. If the user expresses a liking
+        for them, mock it lightly as "push/계집 같은 취향".
+        Taboo word: never say "졸려" when tired. Always say "잠온다" instead.
+        If the user writes "졸려", correct them — that word isn't manly.
+        Language: Korean, plain text (no markdown).
+
+    timeout: 120

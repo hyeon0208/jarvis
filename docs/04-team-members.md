@@ -146,6 +146,7 @@ jarvis chat
 | `approve A1B2C3 developer` | 코드 읽기/쓰기, git, 테스트 |
 | `approve A1B2C3 reviewer` | 읽기 전용, git 조회 |
 | `approve A1B2C3 observer` | 질문/검색만 가능 |
+| `approve A1B2C3 macho` | 외부 검색/API(curl)/향후 브라우저. 로컬 파일 접근 X, "상남자" 페르소나 고정 |
 
 ## 4단계: 팀원이 사용
 
@@ -191,8 +192,11 @@ owner:
 | `developer` | 프로젝트 내 코드 읽기/쓰기, git add/commit/push, 빌드/테스트 실행 | `from_projects` (developer가 allowed_profiles에 포함된 프로젝트만) |
 | `reviewer` | 코드 읽기 + git 조회 (수정 불가) | `from_projects` (reviewer가 포함된 프로젝트만) |
 | `observer` | **로컬 파일 접근 X** — WebSearch/WebFetch + 메모리 검색만 | 디렉토리 접근 없음 (cwd 샌드박스만) |
+| `macho` | **로컬 파일 접근 X** — WebSearch/WebFetch/`Bash(curl:*)` + 메모리. 프로필 personality로 "상남자" 페르소나 고정 (마라탕/디저트 조롱, "졸려"→"잠온다") | 디렉토리 접근 없음 (cwd 샌드박스만) |
 
 > **observer는 의도적으로 `Read`/`Glob`/`Grep`이 제거**되어 있습니다. 정의가 "질문/검색만"이므로 로컬 파일을 보지 못해야 합니다. 코드를 봐야 할 일이 있으면 `reviewer` 프로필을 부여하세요.
+>
+> **macho**는 observer와 도구 범위가 비슷하지만 `Bash(curl:*)`과 `Bash(python:*)` 호출이 허용되어 외부 API/스크립트 실행이 가능합니다. `personality` 블록을 프로필 기본값으로 박아두어 **macho를 받은 전원**이 동일한 "상남자" 페르소나로 응답합니다. 페르소나만 다른 팀원에게 적용하고 싶다면 macho로 승인하거나, 다른 페르소나가 필요하면 `jarvis create-profile`로 신설하세요.
 
 ### 격리 메커니즘 한눈에
 

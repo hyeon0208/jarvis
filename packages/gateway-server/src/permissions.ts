@@ -34,6 +34,7 @@ export interface ProfilePersonality {
   verbosity?: "concise" | "normal" | "detailed";
   emoji?: boolean;
   nickname?: string;
+  system_prompt_extra?: string;
 }
 
 interface ProfileConfig {
