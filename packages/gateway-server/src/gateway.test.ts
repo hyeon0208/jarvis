@@ -53,14 +53,14 @@ describe("Sandbox Config", () => {
 describe("Claude Args (YAML)", () => {
   test("Given owner When buildClaudeArgs Then skip-permissions 포함", async () => {
     const { buildClaudeArgs } = await import("./permissions.js");
-    const args = buildClaudeArgs("owner", "test prompt");
+    const args = buildClaudeArgs("owner");
 
     expect(args).toContain("--dangerously-skip-permissions");
   });
 
   test("Given developer When buildClaudeArgs Then allowedTools + disallowedTools 포함", async () => {
     const { buildClaudeArgs } = await import("./permissions.js");
-    const args = buildClaudeArgs("developer", "test prompt");
+    const args = buildClaudeArgs("developer");
 
     expect(args).toContain("--allowedTools");
     expect(args).toContain("--disallowedTools");
@@ -69,7 +69,7 @@ describe("Claude Args (YAML)", () => {
 
   test("Given observer When buildClaudeArgs Then 로컬 파일 도구 모두 미포함", async () => {
     const { buildClaudeArgs } = await import("./permissions.js");
-    const args = buildClaudeArgs("observer", "test prompt");
+    const args = buildClaudeArgs("observer");
 
     const allowedIdx = args.indexOf("--allowedTools");
     const tools = args[allowedIdx + 1];

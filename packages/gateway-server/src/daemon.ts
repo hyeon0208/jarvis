@@ -14,7 +14,11 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { routeMessage, type IncomingMessage } from "./router.js";
-import { buildClaudeArgs, buildPersonalityPrompt } from "./permissions.js";
+import {
+  buildClaudeArgs,
+  buildPersonalityPrompt,
+  mergePersonality,
+} from "./permissions.js";
 import {
   loadUserConfig,
   getOrCreateClaudeSessionId,
@@ -95,14 +99,18 @@ async function executeWithClaude(
   workDir?: string,
 ): Promise<string> {
 
+  // 프로필의 personality 기본값과 유저 personality를 병합 (유저 설정이 우선)
+  // → profiles.yml에 personality를 박아두면 해당 프로필을 받은 전원에게 자동 적용
+  //   (예: macho 프로필의 "상남자" 페르소나)
+  const mergedPersonality = mergePersonality(personality, profileName);
   const personalityPrompt = buildPersonalityPrompt(
-    personality ?? {},
+    mergedPersonality,
     userName,
     "external-channel",
     userId,
   );
 
-  const args = buildClaudeArgs(profileName, prompt, {
+  const args = buildClaudeArgs(profileName, {
     systemPrompt: personalityPrompt,
     projectDir: workDir,
   });
@@ -121,6 +129,10 @@ async function executeWithClaude(
   } else {
     args.push("--session-id", sessionHandle.session_id);
   }
+
+  // prompt는 반드시 모든 플래그 뒤, `--` 분리자 다음에 와야 함.
+  // (`- 불릿`으로 시작하는 prompt가 옵션으로 오인되는 것을 방지)
+  args.push("--", prompt);
 
   const sessionMode = sessionExists ? "resume" : "new";
   log(

@@ -153,6 +153,13 @@ jarvis uninstall
 jarvis install
 ```
 
+### `claude 종료 코드=1, stderr=error: unknown option '- ...'`
+
+prompt가 마크다운 불릿(`- `, `--` 등)으로 시작하면 commander 파서가 옵션 플래그로 오인할 수 있습니다.
+`buildClaudeArgs`(`packages/gateway-server/src/permissions.ts`)는 이미 prompt를 args에서 제외하고,
+호출부에서 모든 플래그 뒤에 `args.push("--", prompt)` 형태로 분리자를 함께 부착하도록 강제합니다.
+새 호출부를 추가할 때 이 패턴을 반드시 유지하세요.
+
 ## 다음 단계
 
 - [팀원 등록](04-team-members.md) — 페어링으로 팀원 추가

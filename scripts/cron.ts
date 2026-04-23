@@ -147,7 +147,7 @@ async function cmdRun(jobId: string, opts: { send: boolean }): Promise<void> {
   const personality = user.personality ?? {};
 
   const personalityPrompt = buildPersonalityPrompt(personality, userName, "cron-manual", user.user_id);
-  const args = buildClaudeArgs(profile, job.prompt, {
+  const args = buildClaudeArgs(profile, {
     systemPrompt: personalityPrompt,
   });
 
@@ -157,6 +157,9 @@ async function cmdRun(jobId: string, opts: { send: boolean }): Promise<void> {
     sessionHandle.started || hasClaudeSessionJsonl(sessionHandle.session_id);
   const sessionFlag = sessionExists ? "--resume" : "--session-id";
   args.push(sessionFlag, sessionHandle.session_id);
+
+  // prompt는 모든 플래그 뒤, `--` 분리자 다음 (옵션 파싱 회피)
+  args.push("--", job.prompt);
 
   const cwdDir = ensureSandbox(user.user_id);
   const channelName = user.user_id.includes(":") ? user.user_id.split(":")[0] : "owner";

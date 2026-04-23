@@ -92,10 +92,19 @@ export function listProfileConfigs(): Array<{ name: string; description: string 
   }));
 }
 
-/** 프로필에 맞는 Claude CLI 인자 생성 */
+/**
+ * 프로필에 맞는 Claude CLI **플래그**만 생성합니다 (prompt는 제외).
+ *
+ * 반환값에는 prompt가 포함되지 않습니다. 호출부에서 모든 플래그를 추가한 뒤
+ * 반드시 마지막에 `args.push("--", prompt)` 형태로 prompt를 붙여야 합니다.
+ *
+ * Why: `claude -p`는 boolean 플래그라 다음 인자를 소비하지 않습니다.
+ * prompt가 `- `로 시작하면 commander.js가 이를 옵션으로 오인해
+ * `error: unknown option '- ...'`로 종료(exit 1)합니다.
+ * `--` 분리자 뒤에 두면 positional로만 해석되어 안전합니다.
+ */
 export function buildClaudeArgs(
   profileName: string,
-  prompt: string,
   options?: {
     systemPrompt?: string;
     projectDir?: string;
@@ -103,7 +112,7 @@ export function buildClaudeArgs(
 ): string[] {
   const profile = getProfileConfig(profileName);
   const claude = profile?.claude;
-  const args = ["-p", prompt, "--output-format", "text"];
+  const args = ["-p", "--output-format", "text"];
 
   // owner profile (skip_permissions: true) — no restrictions, full access
   if (claude?.skip_permissions) {
