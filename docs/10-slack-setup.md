@@ -33,8 +33,10 @@
 |-------|------|
 | `chat:write` | 봇이 메시지 전송 |
 | `im:history` | DM 메시지 읽기 |
+| `im:read` | DM 채널 조회 |
 | `im:write` | DM 시작 가능 |
 | `app_mentions:read` | 채널에서 `@봇` 멘션 읽기 |
+| `users:read` | 멤버 이름 → user ID 변환 (macho가 "땡칠이 멘션해" 같은 요청을 처리하기 위해) |
 
 ## 4. Event Subscriptions (2개)
 

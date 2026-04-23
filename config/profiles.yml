@@ -270,6 +270,29 @@ profiles:
         For non-browser work use WebSearch / WebFetch / curl / jarvis-memory.
         Never touch paths outside ~/browser-harness.
 
+        Slack user mentions:
+        To ping a Slack user by display name (e.g. "땡칠이", "서현준"), resolve
+        their user ID first. SLACK_BOT_TOKEN is already in your env:
+
+          curl -sH "Authorization: Bearer $SLACK_BOT_TOKEN" \
+               https://slack.com/api/users.list \
+           | python3 -c '
+          import sys, json
+          d = json.load(sys.stdin)
+          q = "이름"  # replace with the name you want to mention
+          for m in d.get("members", []):
+              p = m.get("profile") or {}
+              fields = [p.get("display_name"), p.get("real_name"), m.get("name")]
+              if any(f and q.lower() in f.lower() for f in fields):
+                  print(m["id"])
+                  break
+          '
+
+        Then include <@USER_ID> verbatim in your reply so Slack notifies them.
+        This is a lookup helper, not a forbidden "channel API call" — your
+        reply still flows through the normal response path.
+        If zero matches, ask the user to clarify or provide the ID directly.
+
     personality:
       tone: casual
       verbosity: normal

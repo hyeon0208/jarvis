@@ -200,6 +200,8 @@ owner:
 >
 > **macho**는 observer 대비 `Bash(curl:*)` + `Bash(python:*)` + **`Bash(browser-harness:*)`** CLI 호출이 허용되어 외부 API · 브라우저 자동화가 가능합니다. `add_dirs: [~/browser-harness]`로 harness repo만 화이트리스트되어 Read/Glob/Grep/Write/Edit도 그 디렉토리 안에서만 동작합니다 (helpers.py self-healing 편집 가능). `personality` 블록을 프로필 기본값으로 박아두어 **macho를 받은 전원**이 동일한 "상남자" 페르소나로 응답합니다.
 >
+> **Slack 멤버 멘션**: "땡칠이 호출해줘" 같은 요청이 오면 macho가 `curl`로 `users.list`를 불러 display_name/real_name/name을 매칭해 ID를 찾고, 답변 텍스트에 `<@U_ID>`를 포함해 Slack이 해당 멤버에게 알림을 보냅니다. Bot Token Scope에 `users:read`가 있어야 합니다 (`docs/10-slack-setup.md`).
+>
 > **사전 준비**: Owner 머신에 한 번만 — `git clone https://github.com/browser-use/browser-harness ~/browser-harness && cd ~/browser-harness && uv tool install -e .` 실행 후 `browser-harness --setup`으로 Chrome remote debugging 체크박스 승인. 자세히는 [`~/browser-harness/install.md`](https://github.com/browser-use/browser-harness/blob/main/install.md).
 
 ### 격리 메커니즘 한눈에
