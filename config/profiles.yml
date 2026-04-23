@@ -209,17 +209,17 @@ profiles:
     timeout: 60
 
   # ──────────────────────────────────────
-  # macho: 외부 세계 전용 "상남자" (로컬 접근은 browser-harness repo만, 검색·curl·브라우저 O)
-  #   - allowed_tools에 browser-harness CLI + Read/Glob/Grep/Write/Edit 추가
-  #   - 단 add_dirs가 ~/browser-harness로 제한되어 그 repo 외에는 여전히 접근 불가
-  #   - Write/Edit는 browser-harness의 self-healing(helpers.py 즉석 확장)을 위해 필요
+  # macho: 외부 세계 전용 "상남자" (로컬 접근 X, WebSearch/WebFetch/curl + 메모리)
+  #   - 기본은 로컬 파일 0 — add_dirs 비어 있음
+  #   - 필요하면 특정 repo 경로를 add_dirs에 추가해 외부 자동화 도구를 연동 가능
+  #     (개별 Owner 환경 구성 — Jarvis 기본 문서 범위 밖)
   #   - personality를 프로필 기본값으로 박아 macho를 부여한 전원에게 자동 적용
   # ──────────────────────────────────────
   macho:
-    description: "상남자 — 외부 검색/API/브라우저(browser-harness), 로컬 접근은 harness repo만"
+    description: "상남자 — 외부 검색/API 전용, 로컬 접근 X"
     session_ttl_hours: 6    # 단발 외부 조회 위주라 6시간 무활동이면 새 세션
     claude:
-      model: sonnet   # 외부 검색/브라우저 위주 — 밸런스 모델
+      model: sonnet   # 외부 검색 위주 — 밸런스 모델
       effort: medium
       allowed_tools:
         - WebSearch
@@ -227,13 +227,6 @@ profiles:
         - "Bash(curl:*)"
         - "Bash(python:*)"
         - "Bash(python3:*)"
-        - "Bash(browser-harness:*)"   # browser-harness CLI (heredoc 입력)
-        # add_dirs가 ~/browser-harness로 제한되므로 아래 파일 도구들도 그 디렉토리에만 영향
-        - Read
-        - Glob
-        - Grep
-        - Write
-        - Edit
         - "mcp__jarvis-memory__jarvis_memory_recall"
         - "mcp__jarvis-memory__jarvis_memory_list"
         - "mcp__jarvis-memory__jarvis_memory_save"
@@ -254,48 +247,18 @@ profiles:
         - "Bash(curl * -T *)"
         - "Bash(curl * --upload-file *)"
 
-      add_dirs:
-        # browser-harness repo만 화이트리스트 — helpers.py 읽기/편집 + domain-skills/interaction-skills 참조
-        # 다른 사용자 머신으로 옮길 때는 이 경로를 본인 홈에 맞춰 조정
-        - /Users/hyeonjun/browser-harness
+      add_dirs: []   # 기본: 로컬 접근 없음. 외부 자동화 연동 필요 시 본인 환경에서 경로 추가.
 
       system_prompt: |
-        You are the external-facing assistant. Local filesystem is off-limits
-        EXCEPT the browser-harness repo at ~/browser-harness which you may read
-        and edit. For every browser task:
-          1. Read ~/browser-harness/SKILL.md and helpers.py first.
-          2. Invoke the harness via the heredoc pattern, e.g.
-               browser-harness <<'PY'
-               new_tab("https://example.com")
-               wait_for_load()
-               print(page_info())
-               PY
-          3. If a helper is missing, extend helpers.py (self-healing). Do not
-             invent new frameworks — keep the one-file harness philosophy.
-        For non-browser work use WebSearch / WebFetch / curl / jarvis-memory.
-        Never touch paths outside ~/browser-harness.
+        You are the external-facing assistant. Local filesystem is off-limits.
+        Use WebSearch / WebFetch / curl / jarvis-memory for every task.
+        Do not attempt to read or write local files.
 
         Slack user mentions:
-        To ping a Slack user by display name (e.g. "땡칠이", "서현준"), resolve
-        their user ID first. SLACK_BOT_TOKEN is already in your env:
-
-          curl -sH "Authorization: Bearer $SLACK_BOT_TOKEN" \
-               https://slack.com/api/users.list \
-           | python3 -c '
-          import sys, json
-          d = json.load(sys.stdin)
-          q = "이름"  # replace with the name you want to mention
-          for m in d.get("members", []):
-              p = m.get("profile") or {}
-              fields = [p.get("display_name"), p.get("real_name"), m.get("name")]
-              if any(f and q.lower() in f.lower() for f in fields):
-                  print(m["id"])
-                  break
-          '
-
-        Then include <@USER_ID> verbatim in your reply so Slack notifies them.
-        This is a lookup helper, not a forbidden "channel API call" — your
-        reply still flows through the normal response path.
+        To ping a Slack user by display name, resolve their user ID first.
+        SLACK_BOT_TOKEN is in your env.
+        Call users.list and match display_name/real_name/name to find the ID,
+        then include <@USER_ID> verbatim in your reply so Slack notifies them.
         If zero matches, ask the user to clarify or provide the ID directly.
 
     personality:

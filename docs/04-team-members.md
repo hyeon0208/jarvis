@@ -193,7 +193,7 @@ owner:
 | `developer` | 프로젝트 내 코드 읽기/쓰기, git add/commit/push, 빌드/테스트 실행 | `from_projects` (developer가 allowed_profiles에 포함된 프로젝트만) | 72h | opus |
 | `reviewer` | 코드 읽기 + git 조회 (수정 불가) | `from_projects` (reviewer가 포함된 프로젝트만) | 24h | opus |
 | `observer` | **로컬 파일 접근 X** — WebSearch/WebFetch + 메모리 검색만 | 디렉토리 접근 없음 (cwd 샌드박스만) | 6h | haiku |
-| `macho` | **로컬 파일 접근 = ~/browser-harness repo만** — WebSearch/WebFetch/`Bash(curl:*)` + **`Bash(browser-harness:*)` CDP 브라우저 제어** + 메모리. 프로필 personality로 "상남자" 페르소나 고정 (마라탕/디저트 조롱, "졸려"→"잠온다"). helpers.py self-healing 편집 허용 | `~/browser-harness`만 화이트리스트 | 6h | sonnet |
+| `macho` | **로컬 파일 접근 X (기본)** — WebSearch/WebFetch/`Bash(curl:*)` + 메모리. 프로필 personality로 "상남자" 페르소나 고정 (단정적·거친 말투, 개인 취향 조롱 규칙). 필요 시 `add_dirs`에 특정 디렉토리를 추가해 외부 도구/브라우저 자동화 스크립트 연동 가능 (개별 환경 구성) | 기본 없음 (`add_dirs`로 확장) | 6h | sonnet |
 
 > **모델**은 `config/profiles.yml`의 각 프로필 `claude.model` 필드로 지정됩니다. `owner`는 `opus`(복잡 작업 빈도 높음), `developer`/`reviewer`는 `opus`(깊이 사고 필요), `macho`는 `sonnet`(외부 검색 위주 — 밸런스), `observer`는 `haiku`(단발 질문 — 빠르고 저렴). 필요하면 `jarvis edit-profile <name>` 또는 YAML 직접 편집으로 바꿀 수 있습니다.
 
@@ -201,11 +201,11 @@ owner:
 
 > **observer는 의도적으로 `Read`/`Glob`/`Grep`이 제거**되어 있습니다. 정의가 "질문/검색만"이므로 로컬 파일을 보지 못해야 합니다. 코드를 봐야 할 일이 있으면 `reviewer` 프로필을 부여하세요.
 >
-> **macho**는 observer 대비 `Bash(curl:*)` + `Bash(python:*)` + **`Bash(browser-harness:*)`** CLI 호출이 허용되어 외부 API · 브라우저 자동화가 가능합니다. `add_dirs: [~/browser-harness]`로 harness repo만 화이트리스트되어 Read/Glob/Grep/Write/Edit도 그 디렉토리 안에서만 동작합니다 (helpers.py self-healing 편집 가능). `personality` 블록을 프로필 기본값으로 박아두어 **macho를 받은 전원**이 동일한 "상남자" 페르소나로 응답합니다.
+> **macho**는 observer 대비 `Bash(curl:*)` + `Bash(python:*)` + `Bash(python3:*)` CLI 호출이 허용되어 외부 API 호출이 가능합니다. 기본 상태에서는 `add_dirs`가 비어 로컬 파일 접근이 차단되고, 필요에 따라 특정 repo 경로를 추가해 외부 자동화 도구(브라우저 하네스 등)를 연동할 수 있습니다 — **개별 Owner 환경 구성에 해당**하므로 기본 문서 범위 밖.
 >
-> **Slack 멤버 멘션**: "땡칠이 호출해줘" 같은 요청이 오면 macho가 `curl`로 `users.list`를 불러 display_name/real_name/name을 매칭해 ID를 찾고, 답변 텍스트에 `<@U_ID>`를 포함해 Slack이 해당 멤버에게 알림을 보냅니다. Bot Token Scope에 `users:read`가 있어야 합니다 (`docs/10-slack-setup.md`).
+> `personality` 블록을 프로필 기본값으로 박아두어 **macho를 받은 전원**이 동일한 "상남자" 페르소나로 응답합니다.
 >
-> **사전 준비**: Owner 머신에 한 번만 — `git clone https://github.com/browser-use/browser-harness ~/browser-harness && cd ~/browser-harness && uv tool install -e .` 실행 후 `browser-harness --setup`으로 Chrome remote debugging 체크박스 승인. 자세히는 [`~/browser-harness/install.md`](https://github.com/browser-use/browser-harness/blob/main/install.md).
+> **Slack 멤버 멘션**: "OOO 호출해줘" 같은 요청이 오면 macho가 `curl`로 Slack `users.list` API를 호출해 display_name/real_name/name을 매칭한 뒤 답변 텍스트에 `<@U_ID>`를 포함해 Slack이 해당 멤버에게 알림을 보냅니다. Bot Token Scope에 `users:read`가 있어야 합니다 (`docs/10-slack-setup.md`).
 
 ### 격리 메커니즘 한눈에
 

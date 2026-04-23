@@ -118,7 +118,9 @@ jarvis-gateway (채널 게이트웨이)
 ## 보안 계층
 
 ```
-1층: DM 페어링         — 승인된 유저만 접근
+1층: 페어링             — 승인된 유저만 접근
+                         · DM: 페어링 코드 발급 → Owner 승인
+                         · 채널 auto_pair: Slack 멘션 등은 제한 프로필로 즉시 등록
 2층: 프로필 권한        — 유저별 도구 제한 (--allowedTools/--disallowedTools)
 3층: 디렉토리 격리      — cwd 샌드박스(~/.jarvis/sandboxes/{user}) + --add-dir 화이트리스트
                          · cwd가 빈 디렉토리이므로 Read 도구가 홈/시스템 자동 탐색 불가
@@ -130,6 +132,20 @@ jarvis-gateway (채널 게이트웨이)
 6층: 메모리 격리        — JARVIS_USER_ID 환경변수로 채널/유저별 자동 분리
                          (자세히는 06-memory.md의 "사용자별 메모리 격리")
 ```
+
+## 프로필별 모델 선택
+
+`config/profiles.yml`의 각 프로필 `claude.model` 필드로 Claude 모델을 프로필 단위로 지정합니다 (`opus` | `sonnet` | `haiku` 또는 `claude-{model}-{date}` 정식 이름).
+
+이유: 프로필의 작업 성격이 다르다는 점을 모델 비용/속도/정확도 축으로 반영.
+
+- **opus** — 복잡 작업 빈도 높은 프로필 (`owner`, `developer`, `reviewer`)
+- **sonnet** — 외부 검색/API 위주 밸런스 (`macho`)
+- **haiku** — 단발 질문 / 빠른 응답이 우선인 프로필 (`observer`)
+
+`permissions.ts:buildClaudeArgs`가 `claude.model`이 있으면 `--model` 플래그로 전달합니다. 필드 미지정 시 Claude CLI 기본값(현재 sonnet 계열).
+
+`jarvis doctor`가 모델 이름 유효성을 체크해 오타를 조기에 잡습니다.
 
 ## 다음 단계
 

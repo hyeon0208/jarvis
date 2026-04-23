@@ -23,8 +23,14 @@ Owner가 로컬 터미널에서 사용하는 명령입니다.
 | `jarvis stop` | 데몬 종료 |
 | `jarvis restart` | 데몬 재시작 |
 | `jarvis status` | 실행 상태 확인 |
-| `jarvis logs` | 실시간 로그 (tail -f) |
-| `jarvis logs 100` | 최근 100줄부터 표시 |
+| `jarvis logs [N]` | 실시간 로그 (최근 N줄부터 tail -f, 기본 50) |
+| `jarvis logs --level ERROR` | ERROR/WARN/INFO 중 해당 레벨만 |
+| `jarvis logs --user slack:U07...` | 특정 user_id만 필터 |
+| `jarvis logs --channel slack` | 특정 채널만 필터 (telegram/slack/discord) |
+| `jarvis logs --no-follow` | tail -f 없이 한 번만 출력 |
+
+> 여러 필터는 AND 조합. 예: `jarvis logs --channel slack --level ERROR --user slack:U07ABC`
+> 도움말: `jarvis logs --help`
 
 ### 자동 시작
 
@@ -52,7 +58,7 @@ Owner가 로컬 터미널에서 사용하는 명령입니다.
 | `jarvis pair reject <user_id>` | 페어링 거부 |
 | `jarvis project ls\|add\|rm` | 프로젝트 CRUD |
 | `jarvis channel ls\|enable\|disable\|token <name> [value]` | 채널 CRUD |
-| `jarvis user ls\|show\|profile\|rename\|rm <user_id>` | 유저 관리 |
+| `jarvis user ls\|show\|profile\|rename\|rm <user_id>` | 유저 관리 (출력에 `P`=페어링 여부, `AUTO`=자동 페어링 여부 열 포함) |
 | `jarvis cron list [user_id]` | cron_jobs 조회 |
 | `jarvis cron run <job_id> [--send]` | 즉시 실행 (결과 터미널 출력, `--send`로 채널 전송도) |
 | `jarvis cron recipients <job_id>` | 브로드캐스트 수신자 목록 |
@@ -89,6 +95,15 @@ Jarvis Daemon 시작됨 (PID: 55365)
 $ jarvis logs
 [11:20:33] 수신: [telegram] 김철수: /dev 로그인 구현
 [11:20:34] claude 실행: profile=developer
+
+# 자동 페어링된 유저 확인 (Slack 채널 멘션으로 등록된 경우)
+$ jarvis user ls
+  P    AUTO  USER_ID                        NAME              PROFILE
+  ✓    ✓     slack:U0ADJ73GDV1              U0ADJ73GDV1       macho      # 자동
+  ✓    -     telegram:1613476146            hyeonjun          owner      # 수동 승인
+
+# 자동 페어링된 유저를 수동 승격
+$ jarvis user profile slack:U0ADJ73GDV1 developer
 ```
 
 **병행 시나리오**: Owner가 `jarvis chat`으로 본인 작업을 하면서, 동시에 `jarvis start`(또는 launchd)로 팀원 요청을 백그라운드에서 자동 처리.

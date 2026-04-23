@@ -136,10 +136,49 @@ Jarvis는 **두 개의 디렉토리**를 사용합니다:
 └── daemon.log                  데몬 로그
 ```
 
-## 다음 단계
+## 설치 후 다음 단계 — 시나리오별 체크리스트
 
-- [아키텍처 이해](02-architecture.md) — 전체 구조 파악
-- [Telegram 채널 설정](11-telegram-setup.md) — BotFather 단계별 가이드
-- [Slack 채널 설정](10-slack-setup.md) — Socket Mode 기반
-- [팀원 등록](04-team-members.md) — 페어링 + 프로필 + 개인화
+설치가 끝났다면 어떻게 쓸지 먼저 정해보세요. 아래 시나리오 중 해당하는 흐름만 따라가면 됩니다.
+
+### 시나리오 A — 혼자 터미널에서 사용
+
+본인만 터미널에서 `jarvis chat`으로 쓰는 경우. 외부 채널/봇 토큰 전부 불필요.
+
+- [ ] `/jarvis stats` 로 MCP 연결 확인
+- [ ] `jarvis chat` 으로 대화 시작
+- [ ] 관심 있는 주제에 대해 Jarvis에게 메모해 달라고 요청 (장기 메모리 적재)
+- [ ] 필요 시 `jarvis doctor --quick` 로 설정 점검
+
+### 시나리오 B — Telegram 1:1 + 팀원 1-2명
+
+본인 또는 소수 팀원이 외부에서 Telegram DM으로 Jarvis에 접근.
+
+- [ ] BotFather에서 봇 생성 → 토큰 발급 ([11-telegram-setup.md](11-telegram-setup.md))
+- [ ] `jarvis channel token telegram <토큰>`
+- [ ] `jarvis channel enable telegram`
+- [ ] `jarvis start` 후 `jarvis logs` 에서 "Telegram 리스너 활성화됨" 확인
+- [ ] 본인 Telegram에서 봇과 대화 시작 → 페어링 코드 → `jarvis pair approve <코드> owner`
+- [ ] 팀원이 있다면 봇 username 공유 → 각자 페어링 → `jarvis pair approve <코드> developer|reviewer|observer`
+- [ ] 부팅 자동 시작: `jarvis install` (launchd 등록)
+
+### 시나리오 C — Slack 워크스페이스 (자동 페어링)
+
+슬랙 워크스페이스 멤버 전원이 공용 채널에서 `@Jarvis` 멘션으로 쓰게 하는 경우.
+
+- [ ] Slack App 생성 + Socket Mode + `users:read` 등 Scope 추가 ([10-slack-setup.md](10-slack-setup.md))
+- [ ] `xoxb-`, `xapp-` 두 토큰 발급 → `jarvis channel token slack <xoxb>` + `.env`에 `SLACK_APP_TOKEN` 추가
+- [ ] `jarvis channel enable slack`
+- [ ] `jarvis restart` 후 `jarvis logs 30` 에서 "Slack 리스너 활성화됨" 확인
+- [ ] 공용 채널에 봇 초대: `/invite @Jarvis`
+- [ ] 본인이 먼저 `@Jarvis 안녕` 호출 → 자동 페어링 + macho 응답 → 필요 시 `jarvis user profile slack:U... owner` 로 본인만 승격
+- [ ] `jarvis user ls` 로 등록된 멤버 확인 (AUTO 열이 `✓`면 자동 페어링)
+
+### 공통 정리
+
+시나리오가 무엇이든, 이 문서들은 한 번씩 훑어두면 좋습니다:
+
+- [아키텍처 이해](02-architecture.md) — 격리 6층 / MCP 서버 / 데몬 구조
+- [팀원 등록](04-team-members.md) — 프로필 비교 + 페어링 흐름
+- [메모리 시스템](06-memory.md) — 3계층 메모리 + Dreaming
+- [커맨드 레퍼런스](07-commands.md) — 전체 `jarvis` 명령 목록
 - [개발 워크플로우](05-dev-workflow.md) — `/dev` 커맨드로 코드 작업
