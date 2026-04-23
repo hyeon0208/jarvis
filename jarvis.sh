@@ -114,8 +114,55 @@ cmd_logs() {
     return 1
   fi
 
-  local lines=${1:-50}
-  tail -f -n "$lines" "$LOG_FILE"
+  # 옵션 파싱:
+  #   jarvis logs [N]                 — N줄부터 tail -f (기존 동작, 기본 50)
+  #   jarvis logs --level ERROR       — ERROR만
+  #   jarvis logs --user slack:U07    — 특정 유저
+  #   jarvis logs --channel slack     — 특정 채널
+  #   jarvis logs --no-follow         — follow 없이 한 번만
+  # 필터는 AND 조합.
+  local lines=50
+  local follow="-f"
+  local level=""
+  local user=""
+  local channel=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --level)        level="$2"; shift 2 ;;
+      --user)         user="$2"; shift 2 ;;
+      --channel)      channel="$2"; shift 2 ;;
+      --no-follow|-n) follow=""; shift ;;
+      --follow|-f)    follow="-f"; shift ;;
+      -h|--help)
+        cat <<'USAGE'
+사용법: jarvis logs [N] [옵션]
+  N              최근 N줄부터 (기본 50)
+  --level LV     ERROR | WARN | INFO
+  --user ID      특정 user_id만 (예: slack:U07ABC)
+  --channel CH   특정 채널만 (telegram | slack | discord)
+  --no-follow    tail -f 없이 한 번만 출력
+  --follow, -f   실시간 추적 (기본 동작)
+
+예:
+  jarvis logs --level ERROR
+  jarvis logs --channel slack --user slack:U07ABC
+  jarvis logs 200 --no-follow --level WARN
+USAGE
+        return 0 ;;
+      [0-9]*)         lines="$1"; shift ;;
+      *)
+        echo "알 수 없는 옵션: $1 (jarvis logs --help)" >&2
+        return 1 ;;
+    esac
+  done
+
+  # 필터 정규식 조립 (AND — grep 파이프 체이닝)
+  local cmd="tail $follow -n $lines \"$LOG_FILE\""
+  [ -n "$level" ]   && cmd="$cmd | grep -E --line-buffered \"\\[${level}\\]\""
+  [ -n "$user" ]    && cmd="$cmd | grep -F --line-buffered \"${user}\""
+  [ -n "$channel" ] && cmd="$cmd | grep -E --line-buffered \"\\[${channel}\\]|${channel}:\""
+  eval "$cmd"
 }
 
 SYSTEM_PROMPT="You are Jarvis, a personalized AI agent.

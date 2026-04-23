@@ -37,10 +37,16 @@ function cmdLs(): void {
     console.log(`${DIM}등록된 유저가 없습니다.${RESET}`);
     return;
   }
-  console.log(`\n유저 (${users.length}명):\n`);
+  console.log(`\n유저 (${users.length}명):`);
+  console.log(`${DIM}  P    AUTO  USER_ID                        NAME              PROFILE${RESET}`);
   for (const u of users) {
     const paired = u.paired ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
-    console.log(`  ${paired} ${u.user_id}  (${u.name ?? "-"}, ${u.profile ?? "-"})`);
+    // auto_paired=true면 채널 자동 페어링(Slack 멘션 등)으로 등록된 유저
+    const auto = u.auto_paired === true ? `${GREEN}✓${RESET}` : `${DIM}-${RESET}`;
+    const userId = String(u.user_id ?? "-").padEnd(30);
+    const name = String(u.name ?? "-").padEnd(16);
+    const profile = String(u.profile ?? "-");
+    console.log(`  ${paired}    ${auto}     ${userId} ${name} ${profile}`);
   }
   console.log("");
 }
