@@ -333,3 +333,104 @@ export function resetClaudeSessionId(userId: string): {
   const deletedPath = previous ? deleteClaudeSessionJsonl(previous) : null;
   return { session_id: previous, deleted_path: deletedPath };
 }
+
+/**
+ * /compact 결과로 생성된 요약을 user 파일에 저장합니다.
+ * 다음 번 executeWithClaude 호출에서 prompt 앞에 한 번만 주입된 뒤 소비됩니다.
+ */
+export function setPendingCompactSummary(userId: string, summary: string): void {
+  updateUserConfig(userId, { pending_compact_summary: summary });
+}
+
+/**
+ * pending compact 요약을 읽고 즉시 비웁니다 (one-shot).
+ * 반환값이 있으면 다음 prompt 앞에 붙여주세요.
+ */
+export function consumePendingCompactSummary(userId: string): string | null {
+  const config = loadUserConfig(userId);
+  if (!config) return null;
+  const summary = config.pending_compact_summary as string | undefined;
+  if (!summary) return null;
+  updateUserConfig(userId, { pending_compact_summary: null });
+  return summary;
+}
+
+/**
+ * 마지막 활동 시각을 기록합니다 (매 메시지 처리 시 호출).
+ * TTL 기반 자동 clear(`session_ttl_hours`)가 이 값을 기준으로 판정합니다.
+ */
+export function touchUserActivity(userId: string): void {
+  const config = loadUserConfig(userId);
+  if (!config) return;
+  updateUserConfig(userId, { last_active_at: new Date().toISOString() });
+}
+
+// ============================================================
+// Thread 단위 공유 세션 — 공용 채널 스레드에서 참여자 전원이 같은 Claude 세션
+// 맥락을 공유하도록 UUID를 scopeKey(예: "slack:thread:{channel}:{thread_ts}")
+// 단위로 관리합니다. 개인 격리(프로필/메모리/personality)는 여전히 user_id
+// 단위이며, 이 함수들은 "단기 대화 세션" 축 한 가지에만 적용됩니다.
+// 저장: ~/.jarvis/data/thread-sessions.json
+// ============================================================
+
+const THREAD_SESSIONS_FILE = join(DATA_DIR, "thread-sessions.json");
+
+interface ThreadSessionEntry {
+  session_id: string;
+  started: boolean;
+}
+
+function loadThreadSessions(): Record<string, ThreadSessionEntry> {
+  ensureDirs();
+  if (!existsSync(THREAD_SESSIONS_FILE)) return {};
+  try {
+    return JSON.parse(readFileSync(THREAD_SESSIONS_FILE, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+function saveThreadSessions(data: Record<string, ThreadSessionEntry>): void {
+  ensureDirs();
+  writeFileSync(THREAD_SESSIONS_FILE, JSON.stringify(data, null, 2));
+}
+
+/**
+ * 스코프 키 기반 Claude 세션 핸들 조회/생성.
+ * 스레드 참여자가 같은 scopeKey를 전달하면 같은 UUID로 --resume 되어
+ * Claude 맥락이 이어집니다.
+ */
+export function getOrCreateThreadSessionId(scopeKey: string): ClaudeSessionHandle {
+  const data = loadThreadSessions();
+  const existing = data[scopeKey];
+  if (existing && existing.session_id) {
+    return { session_id: existing.session_id, started: Boolean(existing.started) };
+  }
+  const newId = randomUUID();
+  data[scopeKey] = { session_id: newId, started: false };
+  saveThreadSessions(data);
+  return { session_id: newId, started: false };
+}
+
+/** 스레드 세션이 실제로 claude에 의해 생성됐음을 마킹 (첫 spawn 성공 후). */
+export function markThreadSessionStarted(scopeKey: string): void {
+  const data = loadThreadSessions();
+  if (!data[scopeKey]) return;
+  data[scopeKey].started = true;
+  saveThreadSessions(data);
+}
+
+/** 스레드 세션 초기화 (jsonl도 실제 삭제). */
+export function resetThreadSessionId(scopeKey: string): {
+  session_id: string | null;
+  deleted_path: string | null;
+} {
+  const data = loadThreadSessions();
+  const entry = data[scopeKey];
+  if (!entry) return { session_id: null, deleted_path: null };
+  const previous = entry.session_id;
+  delete data[scopeKey];
+  saveThreadSessions(data);
+  const deletedPath = previous ? deleteClaudeSessionJsonl(previous) : null;
+  return { session_id: previous, deleted_path: deletedPath };
+}

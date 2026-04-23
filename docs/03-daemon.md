@@ -80,9 +80,21 @@ jarvis uninstall    # 해제
     → MCP 서버(jarvis-memory)가 자동으로 user별 데이터 분리
 
 [5] 대화 컨텍스트 (단기)
-    user 파일의 claude_session_id (UUID) → --session-id 인자
-    → claude가 ~/.claude/projects/.../{uuid}.jsonl에서 이전 대화 자동 복원
-    → /clear로 초기화 가능 (새 UUID 발급)
+    scope 결정:
+      · Slack 채널 멘션 + 스레드 안 → "slack:thread:{channel}:{thread_ts}"
+        (스레드 참여자 전원이 같은 UUID로 --resume → 맥락 공유)
+      · 그 외(DM, Telegram 등)      → user_id
+        (개인 세션 — 기존 동작)
+    UUID 저장:
+      · user scope → ~/.jarvis/users/{safe-id}.json의 claude_session_id
+      · thread scope → ~/.jarvis/data/thread-sessions.json (key-value)
+    TTL 자동 clear (user scope만):
+      · 프로필의 session_ttl_hours와 user.last_active_at 비교
+      · 초과하면 다음 메시지 수신 시 jsonl 삭제 + 새 UUID 발급
+      · 로그: "[session] TTL 만료 자동 clear (user=..., idle=Xh > ttl=Yh)"
+    수동 초기화:
+      · /clear — 지금 세션 UUID 리셋 + jsonl 실제 삭제
+      · /compact — 현재 대화를 요약 후 새 UUID로 이어감 (요약은 다음 메시지에 자동 주입)
 ```
 
 자세히는 [02. 아키텍처 — 보안 계층](02-architecture.md#보안-계층) + [06. 메모리 — 사용자별 격리](06-memory.md#사용자별-메모리-격리).
@@ -130,7 +142,7 @@ observer (예시)   → claude -p "..." --allowedTools "Read,Grep,WebSearch"
 [11:21:45] [INFO] claude 완료: 850자 응답
 ```
 
-`session=`은 user의 `claude_session_id` UUID 8자리 prefix입니다. 같은 유저는 매번 같은 prefix가 찍히고, `/clear` 후엔 새 prefix로 바뀝니다.
+`session=`은 Claude 세션 UUID의 8자리 prefix입니다. 같은 유저는 보통 매번 같은 prefix가 찍히고, `/clear`·`/compact`·TTL 만료 후에는 새 prefix로 바뀝니다. `scope=user[telegram:...]`는 개인 세션, `scope=thread[slack:thread:C01:1712...]`는 스레드 공유 세션입니다.
 
 ## 트러블슈팅
 

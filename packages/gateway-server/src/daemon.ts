@@ -17,6 +17,7 @@ import { routeMessage, type IncomingMessage } from "./router.js";
 import {
   buildClaudeArgs,
   buildPersonalityPrompt,
+  getProfileConfig,
   mergePersonality,
 } from "./permissions.js";
 import {
@@ -24,6 +25,12 @@ import {
   getOrCreateClaudeSessionId,
   markClaudeSessionStarted,
   hasClaudeSessionJsonl,
+  resetClaudeSessionId,
+  setPendingCompactSummary,
+  consumePendingCompactSummary,
+  touchUserActivity,
+  getOrCreateThreadSessionId,
+  markThreadSessionStarted,
 } from "./auth.js";
 import { addCronJob, listCronJobs, deleteCronJob, toggleCronJob } from "./cron.js";
 // worktree는 workflow.ts가 관리 (router → workflow → worktree)
@@ -97,7 +104,30 @@ async function executeWithClaude(
   personality?: Record<string, unknown>,
   userName?: string,
   workDir?: string,
+  options?: {
+    skipPendingSummary?: boolean;
+    /**
+     * 세션 UUID 조회 키. 지정하지 않으면 userId가 기본값 (기존 동작).
+     * 공용 채널 스레드에서 같은 키(예: "slack:thread:C01:1712_ts")를 넘기면
+     * 스레드 참여자 전원이 같은 Claude 세션 맥락을 공유합니다.
+     * userId와 동일한 값이면 user 단위 저장소 사용, 다르면 thread-sessions.json 사용.
+     */
+    sessionScopeKey?: string;
+  },
 ): Promise<string> {
+
+  // /compact로 생성된 요약이 대기 중이면 이번 prompt 앞에 한 번만 주입
+  // (compact 자체의 요약 호출에서는 재귀 방지를 위해 skipPendingSummary: true)
+  if (options?.skipPendingSummary !== true) {
+    const pendingSummary = consumePendingCompactSummary(userId);
+    if (pendingSummary) {
+      log(
+        "INFO",
+        `compact 요약 주입 (user=${userId}, ${pendingSummary.length}자)`,
+      );
+      prompt = `[이전 세션 요약]\n${pendingSummary}\n\n[현재 메시지]\n${prompt}`;
+    }
+  }
 
   // 프로필의 personality 기본값과 유저 personality를 병합 (유저 설정이 우선)
   // → profiles.yml에 personality를 박아두면 해당 프로필을 받은 전원에게 자동 적용
@@ -120,7 +150,14 @@ async function executeWithClaude(
   //   첫 호출: --session-id <UUID> (새 세션 생성)
   //   이후:   --resume <UUID>    (기존 세션 이어가기)
   //   /clear: UUID 리셋 → 다음 호출이 다시 --session-id로 시작
-  const sessionHandle = getOrCreateClaudeSessionId(userId);
+  //
+  // scopeKey가 userId와 다르면 공용 스레드 세션을 조회
+  // (여러 사용자가 같은 scopeKey로 들어와 같은 UUID에 --resume)
+  const scopeKey = options?.sessionScopeKey ?? userId;
+  const isThreadScope = scopeKey !== userId;
+  const sessionHandle = isThreadScope
+    ? getOrCreateThreadSessionId(scopeKey)
+    : getOrCreateClaudeSessionId(userId);
   // 분기 기준: started 플래그와 실제 jsonl 존재 여부를 모두 확인.
   // 어느 쪽이든 true면 이미 세션이 있다는 의미 → --resume (ground truth 우선)
   const sessionExists = sessionHandle.started || hasClaudeSessionJsonl(sessionHandle.session_id);
@@ -135,9 +172,10 @@ async function executeWithClaude(
   args.push("--", prompt);
 
   const sessionMode = sessionExists ? "resume" : "new";
+  const scopeTag = isThreadScope ? `thread[${scopeKey.slice(0, 40)}]` : `user[${userId}]`;
   log(
     "INFO",
-    `claude 실행: profile=${profileName}, session=${sessionHandle.session_id.slice(0, 8)}... (${sessionMode}), dir=${workDir ?? "sandbox"}, prompt=${prompt.slice(0, 80)}...`,
+    `claude 실행: profile=${profileName}, scope=${scopeTag}, session=${sessionHandle.session_id.slice(0, 8)}... (${sessionMode}), dir=${workDir ?? "sandbox"}, prompt=${prompt.slice(0, 80)}...`,
   );
 
   return new Promise((resolve) => {
@@ -188,9 +226,13 @@ async function executeWithClaude(
         resolve(`오류가 발생했습니다. (코드: ${code})`);
       } else {
         // 정상 종료 → 세션이 실제로 생성됨(또는 재사용됨)
-        // user 파일의 started 플래그를 true로 정정 (jsonl 존재로 resume한 경우도 플래그 동기화)
+        // started 플래그를 true로 정정 (jsonl 존재로 resume한 경우도 플래그 동기화)
         if (!sessionHandle.started) {
-          markClaudeSessionStarted(userId);
+          if (isThreadScope) {
+            markThreadSessionStarted(scopeKey);
+          } else {
+            markClaudeSessionStarted(userId);
+          }
         }
         log("INFO", `claude 완료: ${stdout.length}자 응답`);
         resolve(stdout.trim() || "응답이 비어있습니다.");
@@ -255,8 +297,65 @@ async function handleCronCommand(
 }
 
 // --- 메시지 처리 파이프라인 ---
+/**
+ * 세션 스코프 키 결정.
+ *   Slack 공용 채널 멘션 + 스레드 안 → "slack:thread:{chat_id}:{thread_ts}"
+ *     → 스레드 참여자 전원이 같은 Claude 세션 맥락을 공유 (UX: 협업 대화)
+ *   그 외 (DM, 채널 본문 단발 멘션, Telegram 등) → user_id
+ *     → 기존과 동일한 개인 세션
+ *
+ * 개인 격리 축(프로필/메모리/personality/cwd 샌드박스)은 전부 user_id 기준 유지.
+ * 이 함수가 바꾸는 건 "단기 대화 세션 UUID" 한 축뿐.
+ */
+function determineSessionScope(msg: IncomingMessage): string {
+  const meta = msg.meta ?? {};
+  const threadTs = meta.thread_ts as string | undefined;
+  const isDm = meta.is_dm as boolean | undefined;
+
+  if (msg.channel === "slack" && isDm === false && threadTs && msg.chat_id) {
+    return `slack:thread:${msg.chat_id}:${threadTs}`;
+  }
+  return msg.user_id;
+}
+
+/**
+ * 프로필의 session_ttl_hours와 user의 last_active_at를 비교해
+ * TTL을 초과했으면 기존 claude 세션을 리셋합니다 (jsonl 삭제 + UUID null).
+ * 이후 다음 getOrCreateClaudeSessionId() 호출이 새 UUID를 발급 → 새 세션으로 시작.
+ * 페어링 안 된 유저는 no-op.
+ */
+function checkAndResetIfSessionExpired(userId: string): void {
+  const config = loadUserConfig(userId);
+  if (!config) return;
+
+  const profileName = (config.profile as string) ?? "observer";
+  const profile = getProfileConfig(profileName);
+  const ttlHours = profile?.session_ttl_hours;
+  if (!ttlHours || ttlHours <= 0) return; // 무제한
+
+  const lastActive = config.last_active_at as string | undefined;
+  if (!lastActive) return; // 첫 호출 — 비교 대상 없음
+
+  const idleMs = Date.now() - new Date(lastActive).getTime();
+  const ttlMs = ttlHours * 3600 * 1000;
+  if (idleMs <= ttlMs) return;
+
+  const idleHours = Math.round(idleMs / 3600 / 1000);
+  log(
+    "INFO",
+    `[session] TTL 만료 자동 clear (user=${userId}, profile=${profileName}, idle=${idleHours}h > ttl=${ttlHours}h)`,
+  );
+  resetClaudeSessionId(userId);
+}
+
 async function handleMessage(incoming: IncomingMessage): Promise<string> {
   log("INFO", `수신: [${incoming.channel}] ${incoming.display_name}: ${incoming.message.slice(0, 80)}`);
+
+  // TTL 자동 clear 체크 (touchUserActivity 이전에 — 지금 갱신되면 비교가 무의미해지므로)
+  checkAndResetIfSessionExpired(incoming.user_id);
+
+  // last_active_at 타임스탬프 갱신 (페어링 안 된 유저는 user 파일이 아직 없어 no-op)
+  touchUserActivity(incoming.user_id);
 
   // 1. 게이트웨이 라우팅 (인증/권한 체크)
   const routeResult = routeMessage(incoming);
@@ -273,6 +372,9 @@ async function handleMessage(incoming: IncomingMessage): Promise<string> {
   const personality = userConfig?.personality as Record<string, unknown> | undefined;
   const userName = (userConfig?.name as string) ?? incoming.display_name;
 
+  // 세션 스코프 결정 (스레드면 공유, 아니면 user 개인 세션)
+  const sessionScopeKey = determineSessionScope(incoming);
+
   // 3. 개발 워크플로우 실행
   if (routeResult.action === "dev_execute") {
     const preMessage = routeResult.response ?? "";
@@ -284,11 +386,64 @@ async function handleMessage(incoming: IncomingMessage): Promise<string> {
       personality,
       userName,
       routeResult.workDir,
+      { sessionScopeKey },
     );
 
     return preMessage
       ? `${preMessage}\n\n---\n\n${truncate(response)}`
       : truncate(response);
+  }
+
+  // 3.5. /compact — 현재 세션을 요약 후 새 세션으로 이어가기
+  //   Claude Code의 /compact는 non-interactive(-p) 모드에서 동작 안 하므로,
+  //   (1) 요약 프롬프트로 Claude 한 번 호출 → 요약 문자열 획득
+  //   (2) 기존 session_id 리셋 + jsonl 삭제
+  //   (3) 요약을 pending_compact_summary로 저장 → 다음 메시지 처리 시 prepend
+  if (routeResult.action === "compact") {
+    const handle = getOrCreateClaudeSessionId(incoming.user_id);
+    const hasPrev = handle.started || hasClaudeSessionJsonl(handle.session_id);
+
+    if (!hasPrev) {
+      return "요약할 이전 세션이 없습니다. 이미 새 세션 상태로 대기 중입니다.";
+    }
+
+    const summaryPrompt =
+      "지금까지의 대화를 3-5줄로 한국어 plain text로 요약해줘. " +
+      "현재 작업 주제, 주요 결정/합의 사항, 이어가야 할 맥락 중심. " +
+      "마크다운 문법 사용 금지. 인사·메타설명 없이 요약 본문만.";
+
+    log("INFO", `[compact] 시작 (user=${incoming.user_id}, session=${handle.session_id.slice(0, 8)})`);
+
+    const summary = await executeWithClaude(
+      summaryPrompt,
+      profileName,
+      incoming.user_id,
+      personality,
+      userName,
+      undefined,
+      { skipPendingSummary: true },
+    );
+
+    const { session_id: previousId } = resetClaudeSessionId(incoming.user_id);
+    setPendingCompactSummary(incoming.user_id, summary);
+    const next = getOrCreateClaudeSessionId(incoming.user_id);
+
+    log(
+      "INFO",
+      `[compact] 완료 (user=${incoming.user_id}, prev=${previousId?.slice(0, 8) ?? "-"} → new=${next.session_id.slice(0, 8)})`,
+    );
+
+    return [
+      "맥락을 요약해 새 세션으로 이어갑니다.",
+      "",
+      "[이번 세션 요약]",
+      summary.trim(),
+      "",
+      `이전 세션: ${previousId?.slice(0, 8) ?? "-"}... (대화 기록 삭제됨)`,
+      `새 세션: ${next.session_id.slice(0, 8)}...`,
+      "",
+      "다음 메시지부터 위 요약이 초기 맥락으로 주입되어 대화가 이어집니다.",
+    ].join("\n");
   }
 
   // 4. 크론잡 커맨드 처리
@@ -315,6 +470,8 @@ async function handleMessage(incoming: IncomingMessage): Promise<string> {
     incoming.user_id,
     personality,
     userName,
+    undefined,
+    { sessionScopeKey },
   );
 
   return truncate(response);
@@ -362,6 +519,9 @@ async function startAdapters(): Promise<void> {
           message: incoming.message,
           message_id: incoming.message_id,
           chat_id: incoming.chat_id,
+          // meta에는 플랫폼별 부가 정보 보존 (Slack의 thread_ts 등) —
+          // executeWithClaude에서 세션 스코프 결정(스레드 공유 세션)에 사용
+          meta: incoming.meta,
         };
         return await handleMessage(inc);
       });

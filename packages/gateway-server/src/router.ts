@@ -22,10 +22,22 @@ export interface IncomingMessage {
   message: string;
   message_id?: string;
   chat_id?: string;
+  /**
+   * 채널 어댑터가 전달한 플랫폼별 부가 정보.
+   * Slack: { is_dm: boolean; thread_ts?: string } — thread_ts가 있으면 세션을
+   * 해당 스레드 단위로 공유 (스레드 참여자 전원이 같은 Claude 세션 맥락을 공유).
+   */
+  meta?: Record<string, unknown>;
 }
 
 export interface RouteResult {
-  action: "respond" | "pairing_required" | "permission_denied" | "execute" | "dev_execute";
+  action:
+    | "respond"
+    | "pairing_required"
+    | "permission_denied"
+    | "execute"
+    | "dev_execute"
+    | "compact";
   response?: string;
   user_config?: Record<string, unknown>;
   profile?: string;
@@ -62,7 +74,15 @@ function parseCronCommand(message: string): {
 function parseSystemCommand(message: string): string | null {
   const trimmed = message.trim();
   // /clear와 /reset은 동일 동작 (둘 다 허용)
-  const commands = ["/help", "/status", "/profile", "/personality", "/clear", "/reset"];
+  const commands = [
+    "/help",
+    "/status",
+    "/profile",
+    "/personality",
+    "/clear",
+    "/reset",
+    "/compact",
+  ];
   for (const cmd of commands) {
     if (trimmed === cmd || trimmed.startsWith(cmd + " ")) return cmd;
   }
@@ -318,6 +338,7 @@ function handleSystemCommand(
           "/profile        — 내 프로필",
           "/personality    — 개인화 설정 조회",
           "/clear          — 대화 컨텍스트 초기화 (메모리는 유지)",
+          "/compact        — 맥락 요약 후 새 세션으로 이어감",
           "",
           "그 외 메시지는 AI 질문으로 처리됩니다.",
         ].join("\n"),
@@ -383,6 +404,14 @@ function handleSystemCommand(
         ].join("\n"),
       };
     }
+
+    case "/compact":
+      // 실제 처리는 daemon에서 — 요약용 Claude 호출이 필요하므로 router에서는 못 함
+      return {
+        action: "compact",
+        user_config: userConfig,
+        profile: profileName,
+      };
 
     default:
       return { action: "respond", response: "알 수 없는 명령입니다." };
