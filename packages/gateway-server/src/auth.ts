@@ -136,6 +136,47 @@ export function approvePairing(
   return { success: true, userId: request.user_id };
 }
 
+/**
+ * 페어링 코드 없이 유저를 즉시 등록합니다 (채널 자동 페어링용).
+ *
+ * 사용처: channels.yml의 `auto_pair: true`가 켜진 채널에서 등록되지 않은
+ * 발신자의 메시지가 들어왔을 때. 워크스페이스 수준 게이트(Slack 멤버십 등)가
+ * 이미 접근을 통제하므로 페어링 코드 발급 단계를 건너뛰는 게 UX상 낫습니다.
+ *
+ * - 이미 등록된 유저면 no-op (중복 방지).
+ * - 감사용 `auto_paired: true` 플래그를 기록.
+ */
+export function autoPairUser(
+  userId: string,
+  displayName: string,
+  channel: string,
+  profile: string,
+): boolean {
+  ensureDirs();
+  if (isUserPaired(userId)) return false;
+
+  const userData = {
+    user_id: userId,
+    name: displayName,
+    profile,
+    channel,
+    paired: true,
+    paired_at: new Date().toISOString(),
+    auto_paired: true,
+    personality: {
+      tone: "friendly",
+      language: "ko",
+      verbosity: "normal",
+      emoji: false,
+      nickname: "Jarvis",
+    },
+    cron_jobs: [],
+  };
+
+  writeFileSync(userFilePath(userId), JSON.stringify(userData, null, 2));
+  return true;
+}
+
 /** 대기 중인 페어링 요청 목록 */
 export function listPendingPairings(): PairingRequest[] {
   const pairings = loadPendingPairings();

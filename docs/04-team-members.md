@@ -95,7 +95,8 @@ Slack과 유사 — Owner가 봇을 서버(guild)에 초대하면 그 서버 멤
 플랫폼별 진입 후 봇에 아무 메시지 보내면 페어링 코드가 발급됩니다.
 
 - **Telegram**: 검색한 봇과의 1:1 채팅에서 "시작" 버튼 클릭 → 메시지 전송
-- **Slack**: 사이드바 Apps에서 봇 클릭 → DM에 메시지 전송 (또는 채널에서 `@봇 안녕`)
+- **Slack DM**: 사이드바 Apps에서 봇 클릭 → DM에 메시지 전송 (페어링 코드 발급)
+- **Slack 채널 @멘션**: `@Jarvis ...` → **페어링 코드 없이 즉시 `macho` 프로필로 자동 등록** (`channels.yml`의 `slack.auto_pair: true` 기본값). 자세히는 [10. Slack 채널 설정 — 자동 페어링](10-slack-setup.md#자동-페어링-설정-channelsyml)
 - **Discord**: DM 또는 봇이 있는 서버 채널에서 `@봇 안녕`
 
 ```
@@ -187,12 +188,14 @@ owner:
 
 기본 예시의 대략적인 범위:
 
-| 프로필 | 범위 요약 | 디렉토리 격리 | 세션 TTL |
-|--------|---------|------------|---------|
-| `developer` | 프로젝트 내 코드 읽기/쓰기, git add/commit/push, 빌드/테스트 실행 | `from_projects` (developer가 allowed_profiles에 포함된 프로젝트만) | 72h |
-| `reviewer` | 코드 읽기 + git 조회 (수정 불가) | `from_projects` (reviewer가 포함된 프로젝트만) | 24h |
-| `observer` | **로컬 파일 접근 X** — WebSearch/WebFetch + 메모리 검색만 | 디렉토리 접근 없음 (cwd 샌드박스만) | 6h |
-| `macho` | **로컬 파일 접근 = ~/browser-harness repo만** — WebSearch/WebFetch/`Bash(curl:*)` + **`Bash(browser-harness:*)` CDP 브라우저 제어** + 메모리. 프로필 personality로 "상남자" 페르소나 고정 (마라탕/디저트 조롱, "졸려"→"잠온다"). helpers.py self-healing 편집 허용 | `~/browser-harness`만 화이트리스트 | 6h |
+| 프로필 | 범위 요약 | 디렉토리 격리 | 세션 TTL | 모델 |
+|--------|---------|------------|---------|------|
+| `developer` | 프로젝트 내 코드 읽기/쓰기, git add/commit/push, 빌드/테스트 실행 | `from_projects` (developer가 allowed_profiles에 포함된 프로젝트만) | 72h | opus |
+| `reviewer` | 코드 읽기 + git 조회 (수정 불가) | `from_projects` (reviewer가 포함된 프로젝트만) | 24h | opus |
+| `observer` | **로컬 파일 접근 X** — WebSearch/WebFetch + 메모리 검색만 | 디렉토리 접근 없음 (cwd 샌드박스만) | 6h | haiku |
+| `macho` | **로컬 파일 접근 = ~/browser-harness repo만** — WebSearch/WebFetch/`Bash(curl:*)` + **`Bash(browser-harness:*)` CDP 브라우저 제어** + 메모리. 프로필 personality로 "상남자" 페르소나 고정 (마라탕/디저트 조롱, "졸려"→"잠온다"). helpers.py self-healing 편집 허용 | `~/browser-harness`만 화이트리스트 | 6h | sonnet |
+
+> **모델**은 `config/profiles.yml`의 각 프로필 `claude.model` 필드로 지정됩니다. `owner`는 `opus`(복잡 작업 빈도 높음), `developer`/`reviewer`는 `opus`(깊이 사고 필요), `macho`는 `sonnet`(외부 검색 위주 — 밸런스), `observer`는 `haiku`(단발 질문 — 빠르고 저렴). 필요하면 `jarvis edit-profile <name>` 또는 YAML 직접 편집으로 바꿀 수 있습니다.
 
 > **세션 TTL**은 마지막 메시지 이후 경과 시간 기준. 초과하면 다음 메시지 수신 시 기존 jsonl 삭제 + 새 UUID로 자동 시작. owner는 설정하지 않아 무제한. `session_ttl_hours` 필드로 프로필별 조정 가능 — `jarvis edit-profile <name>` 또는 `config/profiles.yml` 직접 편집. `/clear`/`/compact`로 수동 제어도 가능.
 

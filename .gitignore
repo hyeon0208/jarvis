@@ -10,6 +10,9 @@ dist/
 .env
 .env.local
 
+# Config backups (scripts/lib/config.ts:backup()이 타임스탬프로 자동 생성)
+*.bak.*
+
 # Data
 data/
 *.db

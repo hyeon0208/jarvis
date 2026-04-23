@@ -24,6 +24,12 @@ channels:
     listen_dm: true
     listen_mention: true
     thread_replies: true
+    # 자동 페어링 — 워크스페이스가 접근을 이미 게이팅하므로 채널 멘션은 코드 없이 즉시 등록.
+    #   auto_pair_scope: mention_only → DM 첫 메시지는 여전히 페어링 코드 경로 유지
+    #                    all          → DM도 자동 페어링
+    auto_pair: true
+    auto_pair_profile: macho
+    auto_pair_scope: mention_only
   webhook:
     enabled: false
     port: 3737

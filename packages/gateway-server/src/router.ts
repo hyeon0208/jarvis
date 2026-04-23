@@ -2,9 +2,12 @@ import {
   isUserPaired,
   createPairingRequest,
   loadUserConfig,
+  autoPairUser,
 } from "./auth.js";
 import { getProfile, checkPermission } from "./profiles.js";
 import { resetClaudeSessionId, getOrCreateClaudeSessionId } from "./auth.js";
+import { getDefaultProfile } from "./permissions.js";
+import { loadChannelsYml } from "../../../scripts/lib/config.js";
 import {
   getWorkflow,
   startWorkflow,
@@ -114,22 +117,55 @@ function parseDevCommand(message: string): {
   return null;
 }
 
+/**
+ * 채널 설정의 auto_pair 정책을 확인해 조건 충족 시 즉시 등록합니다.
+ *
+ * 조건:
+ *   1) channels.yml의 해당 채널에 `auto_pair: true`
+ *   2) scope가 "all"이거나, "mention_only"인데 is_dm=false
+ *
+ * @returns true → 자동 페어링 성공 (호출자는 fall-through로 정상 처리)
+ *          false → 페어링 코드 발급 경로로 진행
+ */
+function tryAutoPair(msg: IncomingMessage): boolean {
+  const channels = loadChannelsYml().channels ?? {};
+  const channelCfg = channels[msg.channel] as Record<string, unknown> | undefined;
+  if (!channelCfg || channelCfg.auto_pair !== true) return false;
+
+  const scope = (channelCfg.auto_pair_scope as string | undefined) ?? "mention_only";
+  const isDm = msg.meta?.is_dm === true;
+  if (scope === "mention_only" && isDm) return false;
+
+  const profile =
+    (channelCfg.auto_pair_profile as string | undefined) ?? getDefaultProfile();
+  autoPairUser(msg.user_id, msg.display_name, msg.channel, profile);
+  // daemon.log가 아닌 stderr로 출력 — launchd가 daemon.stderr.log로 수집.
+  // router는 daemon의 log() 유틸에 접근할 수 없어 일관성 있게 stderr 사용.
+  console.error(
+    `[auto-pair] ${msg.user_id} → profile=${profile} (channel=${msg.channel}, dm=${isDm})`,
+  );
+  return true;
+}
+
 /** 메시지 라우팅 */
 export function routeMessage(msg: IncomingMessage): RouteResult {
-  // 1. 페어링 확인
+  // 1. 페어링 확인 — 채널 정책이 auto_pair이고 조건 충족이면 즉시 등록, 아니면 코드 발급
   if (!isUserPaired(msg.user_id)) {
-    const request = createPairingRequest(
-      msg.user_id,
-      msg.channel,
-      msg.display_name,
-    );
-    return {
-      action: "pairing_required",
-      response:
-        `안녕하세요 ${msg.display_name}님! Jarvis를 사용하려면 페어링이 필요합니다.\n\n` +
-        `페어링 코드: ${request.code}\n\n` +
-        `관리자에게 이 코드를 전달하세요. 코드는 24시간 후 만료됩니다.`,
-    };
+    if (!tryAutoPair(msg)) {
+      const request = createPairingRequest(
+        msg.user_id,
+        msg.channel,
+        msg.display_name,
+      );
+      return {
+        action: "pairing_required",
+        response:
+          `안녕하세요 ${msg.display_name}님! Jarvis를 사용하려면 페어링이 필요합니다.\n\n` +
+          `페어링 코드: ${request.code}\n\n` +
+          `관리자에게 이 코드를 전달하세요. 코드는 24시간 후 만료됩니다.`,
+      };
+    }
+    // fall-through — 자동 페어링 성공, 아래 loadUserConfig가 이제 유저 파일 발견
   }
 
   // 2. 유저 설정 로드

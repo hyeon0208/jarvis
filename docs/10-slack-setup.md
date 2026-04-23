@@ -90,6 +90,8 @@ jarvis doctor                  # Slack 토큰까지 라이브 체크 (auth.test 
 
 ## 9. 동작 확인
 
+### DM (1:1) — 페어링 코드 방식
+
 1. 본인 Slack에서 봇 검색 (앱 이름 `Jarvis`) → DM 시작
 2. 아무 메시지 전송 (예: "안녕")
 3. **첫 메시지는 페어링 코드 발급** — 코드를 받으면:
@@ -100,6 +102,16 @@ jarvis doctor                  # Slack 토큰까지 라이브 체크 (auth.test 
    jarvis pair approve A1B2C3 macho      # 외부 검색/API + "상남자" 페르소나 (로컬 접근 X)
    ```
 4. 이후 DM부터는 즉시 Jarvis가 응답
+
+> DM은 1:1 대화이므로 개인에 맞는 프로필(developer/reviewer/macho 등)을 **수동 승인**으로 선택할 수 있어야 의미가 있습니다. 그래서 DM은 자동 페어링 대상에서 제외됩니다 (`auto_pair_scope: mention_only` 기본값).
+
+### 채널 @멘션 — 자동 페어링 (페어링 코드 불필요)
+
+`channels.yml`에서 `slack.auto_pair: true`가 기본값이므로, 공용 채널에서 `@Jarvis ...`로 멘션하는 순간 **페어링 코드 없이 즉시 `macho` 프로필로 자동 등록**되고 답변이 시작됩니다.
+
+근거: 슬랙 워크스페이스 멤버십 자체가 이미 1차 게이트. 채널 멘션은 공용 공간이라 기본 제한 프로필(`macho` — 로컬 접근 X, 외부 검색/API/브라우저만)을 주는 것이 안전.
+
+자동으로 등록된 유저는 `jarvis user ls`에서 `auto_paired: true` 표식으로 식별할 수 있고, 이후 `jarvis user profile <user_id> developer` 등으로 수동 승격이 가능합니다.
 
 ## 10. 채널에서 @멘션 받기
 
@@ -129,6 +141,28 @@ jarvis doctor                  # Slack 토큰까지 라이브 체크 (auth.test 
 **DM은 기존 그대로**: 봇에 1:1 DM으로 보내는 메시지는 계속 user_id 단위 개인 세션입니다.
 
 > 개인정보 노출 주의: 공용 스레드의 세션은 참여자가 공유합니다. 민감한 질문(비밀번호, 개인 기록 등)은 DM에서 하세요.
+
+---
+
+## 자동 페어링 설정 (channels.yml)
+
+`config/channels.yml`의 `slack` 섹션:
+
+```yaml
+slack:
+  auto_pair: true                    # 자동 페어링 활성화
+  auto_pair_profile: macho           # 자동 등록 시 부여할 프로필 (미지정 → default_profile)
+  auto_pair_scope: mention_only      # mention_only(기본) | all
+```
+
+- `auto_pair_scope: mention_only` — 채널 `@멘션`만 자동 등록, DM은 페어링 코드
+- `auto_pair_scope: all` — DM도 자동 등록 (개인 프로필을 일괄로 할당해도 되는 소규모 팀용)
+- `auto_pair: false` — 완전 수동 페어링 (모든 채널에서 코드 발급)
+
+### 보안 주의
+
+- 자동 페어링은 **워크스페이스 멤버 전원**을 한 번의 멘션으로 등록합니다. 퇴사자/외부 게스트가 있는 워크스페이스라면 `jarvis user ls | grep auto_paired`로 주기 점검 + `jarvis user rm <user_id>`로 정리.
+- `auto_pair_profile`은 반드시 **제한 프로필**(로컬 접근이 없는 macho/observer)로 두세요. `owner`나 `developer`로 두면 워크스페이스에 있는 누구든 코드 편집 권한을 얻게 됩니다.
 
 ---
 
