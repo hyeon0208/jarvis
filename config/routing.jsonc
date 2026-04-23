@@ -10,7 +10,7 @@
     },
     "debugging": {
       "model": "claude-opus",
-      "fallback": "gpt",
+      "fallback": "claude-opus",
       "reason": "깊은 분석 + 창의적 문제해결"
     },
     "refactoring": {
@@ -18,7 +18,7 @@
       "reason": "코드 구조 이해, SOLID 적용"
     },
     "research": {
-      "model": "gemini-pro",
+      "model": "claude-opus",
       "reason": "긴 컨텍스트(1M+), 검색 통합"
     },
     "review": {
@@ -26,7 +26,7 @@
       "reason": "분석력, 비용 효율"
     },
     "question": {
-      "model": "gemini-flash",
+      "model": "claude-sonnet",
       "reason": "빠른 응답, 저비용"
     },
     "design": {
