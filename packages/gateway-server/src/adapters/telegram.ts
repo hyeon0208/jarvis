@@ -77,13 +77,30 @@ export class TelegramAdapter implements ChannelAdapter {
   private async pollLoop(
     onMessage: (msg: AdapterIncoming) => Promise<string | null>,
   ): Promise<void> {
+    // 연속 실패 시 exponential backoff + WARN 로그로 장애 가시화.
+    // 기존 `catch {}`는 토큰 만료/네트워크 차단을 조용히 삼켜 24시간 먹통이 될 수 있었음.
+    let consecutiveFailures = 0;
+    const maxBackoff = 30_000;
+
     while (this.running) {
       try {
         await this.pollOnce(onMessage);
-      } catch {
-        // 네트워크 일시 오류 무시
+        consecutiveFailures = 0;
+      } catch (err) {
+        consecutiveFailures += 1;
+        if (consecutiveFailures === 5) {
+          // 첫 5회 연속 실패 시점에만 경고 (계속 찍지는 않음)
+          console.error(
+            `[telegram] polling 연속 5회 실패 — 토큰/네트워크 점검 필요: ${maskTokens(err)}`,
+          );
+        }
       }
-      await new Promise((r) => setTimeout(r, this.pollInterval));
+
+      const backoff =
+        consecutiveFailures === 0
+          ? this.pollInterval
+          : Math.min(this.pollInterval * 2 ** Math.min(consecutiveFailures - 1, 5), maxBackoff);
+      await new Promise((r) => setTimeout(r, backoff));
     }
   }
 

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
+import { atomicWriteJson } from "../../../scripts/lib/atomic.js";
 
 const DATA_DIR = join(process.env.HOME ?? "~", ".jarvis", "data");
 const USERS_DIR = join(process.env.HOME ?? "~", ".jarvis", "users");
@@ -40,7 +41,7 @@ function loadPendingPairings(): PairingRequest[] {
 /** 대기 중인 페어링 요청 저장 */
 function savePendingPairings(pairings: PairingRequest[]): void {
   ensureDirs();
-  writeFileSync(PAIRING_FILE, JSON.stringify(pairings, null, 2));
+  atomicWriteJson(PAIRING_FILE, pairings);
 }
 
 /** 유저 설정 파일 경로 */
@@ -127,7 +128,7 @@ export function approvePairing(
     cron_jobs: [],
   };
 
-  writeFileSync(userFilePath(request.user_id), JSON.stringify(userData, null, 2));
+  atomicWriteJson(userFilePath(request.user_id), userData);
 
   // 대기 목록에서 제거
   pairings.splice(index, 1);
@@ -173,7 +174,7 @@ export function autoPairUser(
     cron_jobs: [],
   };
 
-  writeFileSync(userFilePath(userId), JSON.stringify(userData, null, 2));
+  atomicWriteJson(userFilePath(userId), userData);
   return true;
 }
 
@@ -213,7 +214,7 @@ export function updateUserConfig(
   const current = loadUserConfig(userId);
   if (!current) return false;
   const merged = { ...current, ...updates };
-  writeFileSync(userFilePath(userId), JSON.stringify(merged, null, 2));
+  atomicWriteJson(userFilePath(userId), merged);
   return true;
 }
 
@@ -267,14 +268,11 @@ export function getOrCreateClaudeSessionId(userId: string): ClaudeSessionHandle 
       claude_session_started: false,
     });
   } else {
-    writeFileSync(
-      userFilePath(userId),
-      JSON.stringify(
-        { user_id: userId, claude_session_id: newId, claude_session_started: false },
-        null,
-        2,
-      ),
-    );
+    atomicWriteJson(userFilePath(userId), {
+      user_id: userId,
+      claude_session_id: newId,
+      claude_session_started: false,
+    });
   }
   return { session_id: newId, started: false };
 }
@@ -433,7 +431,7 @@ function loadThreadSessions(): Record<string, ThreadSessionEntry> {
 
 function saveThreadSessions(data: Record<string, ThreadSessionEntry>): void {
   ensureDirs();
-  writeFileSync(THREAD_SESSIONS_FILE, JSON.stringify(data, null, 2));
+  atomicWriteJson(THREAD_SESSIONS_FILE, data);
 }
 
 /**

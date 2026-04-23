@@ -13,6 +13,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
@@ -22,6 +23,7 @@ import {
   parseDocument,
   stringify as stringifyYaml,
 } from "yaml";
+import { atomicWriteFile, atomicWriteJson } from "./atomic.js";
 
 const HOME = process.env.HOME ?? "~";
 export const PATHS = {
@@ -86,7 +88,7 @@ export function saveProfilesYml(data: ProfilesDocument): void {
   } else {
     doc = new Document(data);
   }
-  writeFileSync(PATHS.profilesYml, String(doc));
+  atomicWriteFile(PATHS.profilesYml, String(doc));
 }
 
 // ============================================================
@@ -97,10 +99,28 @@ export interface ChannelsDocument {
   channels: Record<string, Record<string, unknown>>;
 }
 
+// mtime 기반 캐시 — router가 메시지마다 loadChannelsYml을 호출해도 디스크 I/O는 파일이
+// 바뀌었을 때만. permissions.ts:loadProfilesYml이 쓰는 것과 동일한 패턴.
+let cachedChannels: ChannelsDocument | null = null;
+let cachedChannelsMtime = 0;
+
+function invalidateChannelsCache(): void {
+  cachedChannels = null;
+  cachedChannelsMtime = 0;
+}
+
 export function loadChannelsYml(): ChannelsDocument {
   if (!existsSync(PATHS.channelsYml)) return { channels: {} };
+
+  const mtime = statSync(PATHS.channelsYml).mtimeMs;
+  if (cachedChannels && mtime === cachedChannelsMtime) {
+    return cachedChannels;
+  }
+
   const content = readFileSync(PATHS.channelsYml, "utf-8");
-  return parseYaml(content) as ChannelsDocument;
+  cachedChannels = parseYaml(content) as ChannelsDocument;
+  cachedChannelsMtime = mtime;
+  return cachedChannels;
 }
 
 export function saveChannelsYml(data: ChannelsDocument): void {
@@ -115,7 +135,8 @@ export function saveChannelsYml(data: ChannelsDocument): void {
   } else {
     doc = new Document(data);
   }
-  writeFileSync(PATHS.channelsYml, String(doc));
+  atomicWriteFile(PATHS.channelsYml, String(doc));
+  invalidateChannelsCache();
 }
 
 // ============================================================
@@ -187,7 +208,7 @@ export function saveProjectsJsonc(data: ProjectsDocument): void {
     existsSync(PATHS.projectsJsonc) ? readFileSync(PATHS.projectsJsonc, "utf-8") : "",
   );
   const body = JSON.stringify(data, null, 2);
-  writeFileSync(PATHS.projectsJsonc, header + body + "\n");
+  atomicWriteFile(PATHS.projectsJsonc, header + body + "\n");
 }
 
 function stripJsoncComments(raw: string): string {
@@ -236,7 +257,7 @@ export function upsertEnv(key: string, value: string): void {
   ensureDir(PATHS.envFile);
 
   if (!existsSync(PATHS.envFile)) {
-    writeFileSync(PATHS.envFile, `${key}=${value}\n`);
+    atomicWriteFile(PATHS.envFile, `${key}=${value}\n`);
     return;
   }
 
@@ -259,7 +280,7 @@ export function upsertEnv(key: string, value: string): void {
     updated.splice(updated.length - 1, 0, `${key}=${value}`);
   }
 
-  writeFileSync(PATHS.envFile, updated.join("\n"));
+  atomicWriteFile(PATHS.envFile, updated.join("\n"));
 }
 
 // ============================================================
@@ -342,7 +363,7 @@ export function patchClaudeSettings(patch: {
 
   if (changed.length > 0) {
     ensureDir(PATHS.claudeSettings);
-    writeFileSync(PATHS.claudeSettings, JSON.stringify(settings, null, 2));
+    atomicWriteJson(PATHS.claudeSettings, settings);
   }
 
   return { backup: bak, changed };
