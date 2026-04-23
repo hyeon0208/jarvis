@@ -62,6 +62,26 @@ function ensureSandbox(userId: string): string {
   return dir;
 }
 
+/**
+ * 스레드 공유 세션용 공용 샌드박스.
+ *
+ * 왜 필요한가: Claude Code는 세션 jsonl을 `cwd 해시` 기준으로 저장하므로,
+ * 스레드 참여자 A/B가 서로 다른 user별 샌드박스를 cwd로 쓰면 같은 UUID여도
+ * A가 만든 jsonl을 B가 resume 시 못 찾는다 ("No conversation found").
+ * 스레드는 원래 맥락 공유 구조이므로 공용 cwd가 의미에도 맞음.
+ *
+ * 격리 영향:
+ *   - cwd는 항상 빈 디렉토리로 유지됨 (홈 탐색 차단)
+ *   - 프로필별 --add-dir / --allowedTools는 user_id 단위라 그대로 개별 유지
+ *   - 즉 "cwd 해시를 맞추기 위한" 공용 공간일 뿐, 보안 경계 변화 없음
+ */
+function ensureThreadSandbox(scopeKey: string): string {
+  const safe = scopeKey.replace(/[^a-zA-Z0-9_-]/g, "_") || "thread-anon";
+  const dir = join(SANDBOX_ROOT, safe);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 // --- 로깅 ---
 function log(level: string, message: string): void {
   const timestamp = new Date().toISOString();
@@ -188,15 +208,20 @@ async function executeWithClaude(
     // (LLM 자율성 의존 X, OS 프로세스 환경변수로 100% 보장)
     const channelName = userId.includes(":") ? userId.split(":")[0] : "owner";
 
-    // cwd 정책 — 프로필 무관 일관성 (세션 jsonl 경로 안정 목적):
+    // cwd 정책:
     //   · workDir(예: /dev worktree)이 명시되면 무조건 그쪽
-    //   · 아니면 항상 user별 샌드박스 (~/.jarvis/sandboxes/{id}/)
+    //   · thread scope(스레드 공유 세션)이면 스레드 공용 샌드박스
+    //     → Claude Code가 저장하는 cwd 해시가 참여자 전원에게 같아야
+    //       --resume이 동작 (다르면 "No conversation found")
+    //   · 그 외 — user별 샌드박스 (~/.jarvis/sandboxes/{id}/)
     //   · 프로필별 접근 범위 차등은 --add-dir (permissions.ts:buildClaudeArgs)로 제어
     //     예: owner는 --add-dir $HOME 자동 추가, 다른 프로필은 from_projects
-    //   · Claude Code는 세션 jsonl을 cwd 해시 기반 경로에 저장하므로
-    //     cwd가 바뀌면 --resume이 "session not found"로 실패함
-    const cwdDir = workDir ?? ensureSandbox(userId);
-    log("INFO", `cwd: ${cwdDir} (${workDir ? "worktree" : "sandbox"})`);
+    //   · cwd는 세 경우 모두 빈 디렉토리(샌드박스) — 홈 탐색 차단은 동일
+    const cwdDir =
+      workDir ??
+      (isThreadScope ? ensureThreadSandbox(scopeKey) : ensureSandbox(userId));
+    const cwdLabel = workDir ? "worktree" : isThreadScope ? "thread-sandbox" : "sandbox";
+    log("INFO", `cwd: ${cwdDir} (${cwdLabel})`);
 
     const child = spawn("claude", args, {
       // stdin: "ignore" — prompt는 args로 전달되므로 stdin을 쓰지 않음.
