@@ -284,39 +284,10 @@ case "${1:-}" in
   add-project)      bun run "$HOME/jarvis/scripts/add-project.ts" ;;
   add-channel)      bun run "$HOME/jarvis/scripts/add-channel.ts" ;;
   install-mcp)      shift; bun run "$HOME/jarvis/scripts/install-mcp.ts" "$@" ;;
-  help|--help|-h)   ;; # 아래 기본 출력으로
+  help|--help|-h)   shift; bun run "$HOME/jarvis/scripts/help.ts" "$@" ;;
   *)
-    echo -e "Jarvis"
-    echo ""
-    echo -e "${GREEN}대화${NC}"
-    echo "  chat                       Jarvis와 대화 모드 시작"
-    echo "  ask \"...\"                  한 번 질문하고 답변 받기"
-    echo ""
-    echo -e "${GREEN}데몬${NC}"
-    echo "  start/stop/restart         백그라운드 데몬 제어"
-    echo "  status                     실행 상태 확인"
-    echo "  logs [N]                   데몬 로그 실시간 표시"
-    echo "  install/uninstall          맥 부팅 자동 시작 등록/해제"
-    echo ""
-    echo -e "${GREEN}설정${NC}"
-    echo "  create-profile             프로필 생성 마법사"
-    echo "  edit-profile <name>        기존 프로필 수정 마법사"
-    echo "  add-project                프로젝트 추가 마법사"
-    echo "  add-channel                채널 추가 마법사"
-    echo "  install-mcp [--dry-run]    Claude Code settings.json 자동 패치"
-    echo ""
-    echo -e "${GREEN}조회${NC}"
-    echo "  list profiles|users|channels|pending   목록 조회"
-    echo "  doctor [--quick]           전체 진단"
-    echo ""
-    echo -e "${GREEN}관리${NC}"
-    echo "  pair list                  페어링 대기 목록"
-    echo "  pair approve <code> <profile>  페어링 승인"
-    echo "  pair reject <user_id>      페어링 거부"
-    echo "  project add|rm|ls          프로젝트 CRUD"
-    echo "  channel ls|enable|disable|token <name> [value]"
-    echo "  user ls|show|profile|rename|rm <user_id>"
-    echo "  cron list [user_id] | run <job_id> [--send]  cron_jobs 조회/수동 실행"
-    echo "  cron recipients <job_id> [add|remove|clear] <uid>...  브로드캐스트 수신자 관리"
+    # 알 수 없는 명령 → help 출력 후 exit 1
+    bun run "$HOME/jarvis/scripts/help.ts"
+    exit 1
     ;;
 esac

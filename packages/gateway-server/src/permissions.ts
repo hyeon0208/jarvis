@@ -230,6 +230,34 @@ function getAccessibleDirs(profileName: string): string[] {
   return dirs;
 }
 
+/**
+ * 매 메시지마다 동일하게 붙는 고정 규칙. 모듈 상수화해 문자열 재생성 비용 제거 +
+ * 가독성 ↑. 내용 자체는 기존과 동일 (plain text, pre-task memory recall,
+ * 2000자 제한 등).
+ */
+const STATIC_SYSTEM_RULES = [
+  "You are Jarvis, a personalized AI agent.",
+  "You are responding to an external channel message.",
+  "The system forwards your reply automatically; output only the answer text.",
+  "Do not attempt to send via channel APIs and do not include meta commentary.",
+  "Keep responses under 2000 characters and concise.",
+  "Respond in plain text. No markdown (no **bold**, *italic*, # headings, `inline code`, or ```code blocks```). Hyphen bullets are fine.",
+  "[Pre-task] Unless the request is trivial smalltalk, first call: 1) jarvis_memory_recall(query, type:'declarative') 2) jarvis_session_search(query). Apply findings silently.",
+].join(" ");
+
+const TONE_MAP: Record<string, string> = {
+  formal: "Use a formal and polite tone.",
+  casual: "Use a casual and friendly tone.",
+  friendly: "Use a warm and friendly tone.",
+  technical: "Use a technical and precise tone.",
+};
+
+const LANG_MAP: Record<string, string> = {
+  ko: "Respond in Korean (한국어).",
+  en: "Respond in English.",
+  ja: "Respond in Japanese (日本語).",
+};
+
 /** Build system prompt from personality settings (English for token efficiency) */
 export function buildPersonalityPrompt(
   personality: Record<string, unknown>,
@@ -237,56 +265,25 @@ export function buildPersonalityPrompt(
   channel?: string,
   userId?: string,
 ): string {
-  const parts: string[] = [];
-
-  parts.push(
-    "You are Jarvis, a personalized AI agent.",
-    "You are responding to an external channel message.",
-    "The system forwards your reply automatically; output only the answer text.",
-    "Do not attempt to send via channel APIs and do not include meta commentary.",
-    "Keep responses under 2000 characters and concise.",
-    // Plain text policy — channels render markdown differently (Telegram MarkdownV2, Slack mrkdwn, Discord md).
-    // Emitting plain text keeps channel adapters simple and avoids per-platform escaping.
-    "Respond in plain text. Do not use markdown syntax: no **bold**, *italic*, _underline_, # headings, `inline code`, or ```code blocks```. Simple hyphen bullets (- item) are fine.",
-    // Context preloading — skip for trivial greetings / one-liners
-    "[Important] Before answering, if the user request is not a trivial greeting or small talk, call these first:",
-    "1) jarvis_memory_recall(query: keywords, type: 'declarative') — check user preferences/past decisions",
-    "2) jarvis_session_search(query: keywords) — find similar past work",
-    "Incorporate findings into your reply, but do not expose the tool calls themselves.",
-  );
+  const parts: string[] = [STATIC_SYSTEM_RULES];
 
   if (userName) parts.push(`User name: ${userName}.`);
   if (channel) parts.push(`Channel: ${channel}.`);
 
-  // User-id isolation — env JARVIS_USER_ID handles it automatically,
-  // but explicit args must also use the same value.
+  // User-id isolation — env JARVIS_USER_ID handles it automatically.
+  // 한 줄로 압축해 토큰 절약 (기존 3줄 → 1줄, 동일 의미).
   if (userId) {
     parts.push(
-      `[Memory isolation] user_id for this request is "${userId}".`,
-      "Do not reference memory or sessions of other users.",
-      "MCP memory tool calls omit user_id by default (env-based), but if you pass it explicitly, use exactly this value.",
+      `[Isolation] user_id="${userId}". Do not reference other users' memory/sessions. MCP tools use env-based user_id by default.`,
     );
   }
 
   const tone = personality.tone as string | undefined;
-  if (tone) {
-    const toneMap: Record<string, string> = {
-      formal: "Use a formal and polite tone.",
-      casual: "Use a casual and friendly tone.",
-      friendly: "Use a warm and friendly tone.",
-      technical: "Use a technical and precise tone.",
-    };
-    parts.push(toneMap[tone] ?? "");
-  }
+  if (tone && TONE_MAP[tone]) parts.push(TONE_MAP[tone]);
 
   const language = personality.language as string | undefined;
   if (language) {
-    const langMap: Record<string, string> = {
-      ko: "Respond in Korean (한국어).",
-      en: "Respond in English.",
-      ja: "Respond in Japanese (日本語).",
-    };
-    parts.push(langMap[language] ?? `Respond in ${language}.`);
+    parts.push(LANG_MAP[language] ?? `Respond in ${language}.`);
   } else {
     // Default: Korean (primary user base). Override via personality.language.
     parts.push("Respond in Korean (한국어) by default.");

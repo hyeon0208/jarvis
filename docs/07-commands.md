@@ -1,5 +1,7 @@
 # 커맨드 레퍼런스
 
+> **단일 소스**: 명령 목록은 [`scripts/lib/commands.ts`](../scripts/lib/commands.ts)의 `BUILTIN_COMMANDS`에서 중앙 관리됩니다. 터미널에서 `jarvis help`(또는 `jarvis help <카테고리>`)로 동일 정보를 볼 수 있으며, Telegram 봇 메뉴도 같은 소스에서 자동 생성됩니다. 새 명령을 추가하거나 수정할 때는 해당 파일 한 곳만 건드리세요. 본 문서는 상세 예시/가이드 중심으로 유지합니다.
+
 Jarvis의 모든 명령을 한 곳에 정리합니다.
 
 ---

@@ -492,15 +492,14 @@ function truncate(text: string): string {
 import { createEnabledAdapters } from "./adapters/registry.js";
 import type { AdapterIncoming, ChannelAdapter } from "./adapters/types.js";
 import { startCronRunner } from "./cron-runner.js";
+import { listCommands } from "../../../scripts/lib/commands.js";
 
-const TELEGRAM_COMMANDS = [
-  { command: "dev", description: "개발 워크플로우 시작 (/dev 작업내용)" },
-  { command: "help", description: "사용 가능한 명령 목록" },
-  { command: "status", description: "Jarvis 상태 확인" },
-  { command: "profile", description: "내 프로필 조회" },
-  { command: "personality", description: "개인화 설정 조회" },
-  { command: "cron", description: "크론잡 관리 (add/list/delete)" },
-];
+// 채널 봇 메뉴 — scripts/lib/commands.ts의 채널 노출 명령에서 자동 생성.
+// Telegram setMyCommands API는 "/" 프리픽스를 자동으로 붙이므로 name에서 제거.
+const TELEGRAM_COMMANDS = listCommands({ channelOnly: true }).map((cmd) => ({
+  command: cmd.name.replace(/^\//, ""),
+  description: cmd.description,
+}));
 
 let activeAdapters: ChannelAdapter[] = [];
 
