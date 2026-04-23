@@ -42,6 +42,12 @@ interface ProfileConfig {
   claude?: ProfileClaudeConfig;
   personality?: ProfilePersonality;
   timeout?: number;
+  /**
+   * 세션 자동 clear TTL (시간 단위).
+   * last_active_at에서 이 시간만큼 지난 뒤 다음 메시지가 오면 jsonl 삭제 + 새 UUID로 시작.
+   * 생략/0/음수 → 무제한 (사용자가 /clear를 호출할 때까지 누적).
+   */
+  session_ttl_hours?: number;
 }
 
 interface ProfilesYml {

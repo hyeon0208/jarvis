@@ -32,6 +32,7 @@ profiles:
   # ──────────────────────────────────────
   developer:
     description: "개발자 — 코드 읽기/쓰기, git, 테스트 실행"
+    session_ttl_hours: 72   # 3일 무활동이면 다음 호출 시 새 세션으로 자동 시작
     claude:
       effort: xhigh  # 복잡한 코딩/디버깅을 위해 깊은 사고
       allowed_tools:
@@ -124,6 +125,7 @@ profiles:
   # ──────────────────────────────────────
   reviewer:
     description: "리뷰어 — 읽기 전용, git 조회 (projects.jsonc 화이트리스트 디렉토리만)"
+    session_ttl_hours: 24   # 하루 무활동이면 다음 호출 시 새 세션
     claude:
       effort: high  # 코드 리뷰/분석은 깊이 사고가 필요
       allowed_tools:
@@ -170,6 +172,7 @@ profiles:
   # ──────────────────────────────────────
   observer:
     description: "옵저버 — 질문/검색만 (로컬 파일 접근 X)"
+    session_ttl_hours: 6    # 단발 질문 위주라 6시간 무활동이면 새 세션
     claude:
       effort: low  # 단순 질문은 빠른 응답이 우선
       allowed_tools:
@@ -210,6 +213,7 @@ profiles:
   # ──────────────────────────────────────
   macho:
     description: "상남자 — 외부 검색/API/(후속)브라우저, 로컬 접근 X"
+    session_ttl_hours: 6    # 단발 외부 조회 위주라 6시간 무활동이면 새 세션
     claude:
       effort: medium
       allowed_tools:

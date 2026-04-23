@@ -222,7 +222,14 @@ async function main() {
   const timeoutStr = await ask("타임아웃 (초, 기본 300):");
   const timeout = Number(timeoutStr) || 300;
 
-  // 9. 확인
+  // 10. 세션 TTL (자동 clear)
+  console.log("\n\x1b[33m세션 누적 자동 정리 기준입니다.");
+  console.log("마지막 메시지 이후 이 시간만큼 지나면 다음 호출 시 새 세션으로 시작합니다.");
+  console.log("(예시: 6=단발 질문, 24=하루 리뷰, 72=주중 개발, 비워두면 무제한)\x1b[0m");
+  const ttlStr = await ask("세션 TTL (시간, 비우면 무제한):");
+  const sessionTtlHours = ttlStr.trim() ? Number(ttlStr) : 0;
+
+  // 11. 확인
   console.log("\n\x1b[32m── 프로필 요약 ──\x1b[0m");
   console.log(`이름:       ${name}`);
   console.log(`설명:       ${description}`);
@@ -233,6 +240,7 @@ async function main() {
   console.log(`디렉토리:   ${addDirs.length > 0 ? addDirs.join(", ") : "(제한 없음)"}`);
   console.log(`프롬프트:   ${systemPrompt ? systemPrompt.slice(0, 50) + "..." : "(없음)"}`);
   console.log(`타임아웃:   ${timeout}초`);
+  console.log(`세션 TTL:   ${sessionTtlHours > 0 ? `${sessionTtlHours}시간` : "(무제한)"}`);
 
   const confirm = await askYesNo("\n이 프로필을 저장할까요?");
   if (!confirm) {
@@ -240,9 +248,10 @@ async function main() {
     process.exit(0);
   }
 
-  // 10. 저장
+  // 12. 저장
   const profile: Record<string, unknown> = {
     description,
+    ...(sessionTtlHours > 0 ? { session_ttl_hours: sessionTtlHours } : {}),
     claude: {
       ...(model ? { model } : {}),
       ...(effort ? { effort } : {}),
