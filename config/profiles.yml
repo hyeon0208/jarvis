@@ -205,14 +205,14 @@ profiles:
     timeout: 60
 
   # ──────────────────────────────────────
-  # macho: 외부 세계 전용 "상남자" (로컬 접근 X, 검색·curl·향후 브라우저 O)
-  #   - Read/Glob/Grep 없음 → 로컬 파일 차단
-  #   - Bash(curl:*) 허용 → POST/헤더 포함 임의 HTTP 호출
-  #   - Bash(python:*), Bash(python3:*) 허용 → 향후 browser-harness run.py 호출 경로
+  # macho: 외부 세계 전용 "상남자" (로컬 접근은 browser-harness repo만, 검색·curl·브라우저 O)
+  #   - allowed_tools에 browser-harness CLI + Read/Glob/Grep/Write/Edit 추가
+  #   - 단 add_dirs가 ~/browser-harness로 제한되어 그 repo 외에는 여전히 접근 불가
+  #   - Write/Edit는 browser-harness의 self-healing(helpers.py 즉석 확장)을 위해 필요
   #   - personality를 프로필 기본값으로 박아 macho를 부여한 전원에게 자동 적용
   # ──────────────────────────────────────
   macho:
-    description: "상남자 — 외부 검색/API/(후속)브라우저, 로컬 접근 X"
+    description: "상남자 — 외부 검색/API/브라우저(browser-harness), 로컬 접근은 harness repo만"
     session_ttl_hours: 6    # 단발 외부 조회 위주라 6시간 무활동이면 새 세션
     claude:
       effort: medium
@@ -222,6 +222,13 @@ profiles:
         - "Bash(curl:*)"
         - "Bash(python:*)"
         - "Bash(python3:*)"
+        - "Bash(browser-harness:*)"   # browser-harness CLI (heredoc 입력)
+        # add_dirs가 ~/browser-harness로 제한되므로 아래 파일 도구들도 그 디렉토리에만 영향
+        - Read
+        - Glob
+        - Grep
+        - Write
+        - Edit
         - "mcp__jarvis-memory__jarvis_memory_recall"
         - "mcp__jarvis-memory__jarvis_memory_list"
         - "mcp__jarvis-memory__jarvis_memory_save"
@@ -242,12 +249,26 @@ profiles:
         - "Bash(curl * -T *)"
         - "Bash(curl * --upload-file *)"
 
-      add_dirs: []  # 로컬 파일 0 (향후 browser-harness 통합 시 repo 경로 추가)
+      add_dirs:
+        # browser-harness repo만 화이트리스트 — helpers.py 읽기/편집 + domain-skills/interaction-skills 참조
+        # 다른 사용자 머신으로 옮길 때는 이 경로를 본인 홈에 맞춰 조정
+        - /Users/hyeonjun/browser-harness
 
       system_prompt: |
-        You are the external-facing assistant. No local file access.
-        Use WebSearch / WebFetch / curl / jarvis-memory for every task.
-        Do not attempt to read or write local files under any circumstance.
+        You are the external-facing assistant. Local filesystem is off-limits
+        EXCEPT the browser-harness repo at ~/browser-harness which you may read
+        and edit. For every browser task:
+          1. Read ~/browser-harness/SKILL.md and helpers.py first.
+          2. Invoke the harness via the heredoc pattern, e.g.
+               browser-harness <<'PY'
+               new_tab("https://example.com")
+               wait_for_load()
+               print(page_info())
+               PY
+          3. If a helper is missing, extend helpers.py (self-healing). Do not
+             invent new frameworks — keep the one-file harness philosophy.
+        For non-browser work use WebSearch / WebFetch / curl / jarvis-memory.
+        Never touch paths outside ~/browser-harness.
 
     personality:
       tone: casual

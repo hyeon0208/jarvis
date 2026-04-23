@@ -192,13 +192,15 @@ owner:
 | `developer` | 프로젝트 내 코드 읽기/쓰기, git add/commit/push, 빌드/테스트 실행 | `from_projects` (developer가 allowed_profiles에 포함된 프로젝트만) | 72h |
 | `reviewer` | 코드 읽기 + git 조회 (수정 불가) | `from_projects` (reviewer가 포함된 프로젝트만) | 24h |
 | `observer` | **로컬 파일 접근 X** — WebSearch/WebFetch + 메모리 검색만 | 디렉토리 접근 없음 (cwd 샌드박스만) | 6h |
-| `macho` | **로컬 파일 접근 X** — WebSearch/WebFetch/`Bash(curl:*)` + 메모리. 프로필 personality로 "상남자" 페르소나 고정 (마라탕/디저트 조롱, "졸려"→"잠온다") | 디렉토리 접근 없음 (cwd 샌드박스만) | 6h |
+| `macho` | **로컬 파일 접근 = ~/browser-harness repo만** — WebSearch/WebFetch/`Bash(curl:*)` + **`Bash(browser-harness:*)` CDP 브라우저 제어** + 메모리. 프로필 personality로 "상남자" 페르소나 고정 (마라탕/디저트 조롱, "졸려"→"잠온다"). helpers.py self-healing 편집 허용 | `~/browser-harness`만 화이트리스트 | 6h |
 
 > **세션 TTL**은 마지막 메시지 이후 경과 시간 기준. 초과하면 다음 메시지 수신 시 기존 jsonl 삭제 + 새 UUID로 자동 시작. owner는 설정하지 않아 무제한. `session_ttl_hours` 필드로 프로필별 조정 가능 — `jarvis edit-profile <name>` 또는 `config/profiles.yml` 직접 편집. `/clear`/`/compact`로 수동 제어도 가능.
 
 > **observer는 의도적으로 `Read`/`Glob`/`Grep`이 제거**되어 있습니다. 정의가 "질문/검색만"이므로 로컬 파일을 보지 못해야 합니다. 코드를 봐야 할 일이 있으면 `reviewer` 프로필을 부여하세요.
 >
-> **macho**는 observer와 도구 범위가 비슷하지만 `Bash(curl:*)`과 `Bash(python:*)` 호출이 허용되어 외부 API/스크립트 실행이 가능합니다. `personality` 블록을 프로필 기본값으로 박아두어 **macho를 받은 전원**이 동일한 "상남자" 페르소나로 응답합니다. 페르소나만 다른 팀원에게 적용하고 싶다면 macho로 승인하거나, 다른 페르소나가 필요하면 `jarvis create-profile`로 신설하세요.
+> **macho**는 observer 대비 `Bash(curl:*)` + `Bash(python:*)` + **`Bash(browser-harness:*)`** CLI 호출이 허용되어 외부 API · 브라우저 자동화가 가능합니다. `add_dirs: [~/browser-harness]`로 harness repo만 화이트리스트되어 Read/Glob/Grep/Write/Edit도 그 디렉토리 안에서만 동작합니다 (helpers.py self-healing 편집 가능). `personality` 블록을 프로필 기본값으로 박아두어 **macho를 받은 전원**이 동일한 "상남자" 페르소나로 응답합니다.
+>
+> **사전 준비**: Owner 머신에 한 번만 — `git clone https://github.com/browser-use/browser-harness ~/browser-harness && cd ~/browser-harness && uv tool install -e .` 실행 후 `browser-harness --setup`으로 Chrome remote debugging 체크박스 승인. 자세히는 [`~/browser-harness/install.md`](https://github.com/browser-use/browser-harness/blob/main/install.md).
 
 ### 격리 메커니즘 한눈에
 
