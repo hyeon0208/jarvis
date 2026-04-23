@@ -246,12 +246,15 @@ cat ~/.jarvis/users/telegram_12345.json
 > 채널 전송 시도, 메타 설명은 하지 마세요.
 > 순수한 답변 텍스트만 출력하세요.
 > 응답은 2000자 이내로 간결하게 작성하세요.
+> 응답은 plain text로 작성하세요. markdown 문법 사용 금지: **볼드**, *이탤릭*, _언더라인_, # 헤더, `인라인 코드`, ```코드 블록``` 전부 쓰지 마세요. 목록은 단순 하이픈(- 항목)만 허용.
 > [중요] 답변 작성 전, 사용자 요청이 단순 인사나 한 줄 잡담이 아니라면 다음을 먼저 호출하세요:
 > 1) jarvis_memory_recall(query: 핵심키워드, type: 'declarative') — 사용자 선호/과거 결정 확인
 > 2) jarvis_session_search(query: 핵심키워드) — 유사 과거 작업 확인
 > 위 결과를 답변에 반영하되, 도구 호출 사실 자체는 답변에 노출하지 마세요.
 
 이 지시는 personality와 무관하게 항상 붙습니다 (외부 채널 메시지 처리 시). 메모리 프리로딩 강제 지시는 IntentGate 자동화의 일환으로 추가되었습니다.
+
+**왜 plain text인가**: Telegram(MarkdownV2) · Slack(mrkdwn) · Discord(표준 md) · Webhook(임의)는 각각 마크다운 문법이 다르고 이스케이프 규칙이 까다롭습니다. 후처리로 채널마다 변환기를 붙이는 대신 **모델이 애초에 plain text로 답하게** 하면 어댑터 로직이 단순해지고 출력 토큰도 약간 줄어듭니다. 이 정책은 로컬 `jarvis chat`/`ask` (`jarvis.sh`의 SYSTEM_PROMPT)에도 동일하게 적용됩니다.
 
 ### Owner의 `jarvis chat`은?
 

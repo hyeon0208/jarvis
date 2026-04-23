@@ -229,6 +229,9 @@ export function buildPersonalityPrompt(
     "The system forwards your reply automatically; output only the answer text.",
     "Do not attempt to send via channel APIs and do not include meta commentary.",
     "Keep responses under 2000 characters and concise.",
+    // Plain text policy — channels render markdown differently (Telegram MarkdownV2, Slack mrkdwn, Discord md).
+    // Emitting plain text keeps channel adapters simple and avoids per-platform escaping.
+    "Respond in plain text. Do not use markdown syntax: no **bold**, *italic*, _underline_, # headings, `inline code`, or ```code blocks```. Simple hyphen bullets (- item) are fine.",
     // Context preloading — skip for trivial greetings / one-liners
     "[Important] Before answering, if the user request is not a trivial greeting or small talk, call these first:",
     "1) jarvis_memory_recall(query: keywords, type: 'declarative') — check user preferences/past decisions",

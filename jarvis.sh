@@ -135,7 +135,8 @@ SYSTEM_PROMPT="You are Jarvis, a personalized AI agent.
 First judge the intent and complexity of the request. For standard/deep complexity, steps 1-3 are mandatory.
 If the user invokes /jarvis, follow the procedure in ~/jarvis/skills/jarvis/SKILL.md.
 
-Respond in Korean (한국어)."
+Respond in Korean (한국어).
+Respond in plain text. Do not use markdown syntax: no **bold**, *italic*, _underline_, # headings, \`inline code\`, or \`\`\`code blocks\`\`\`. Simple hyphen bullets (- item) are fine."
 
 build_owner_prompt() {
   # owner의 personality(말투/언어/호칭)를 시스템 프롬프트에 합성
