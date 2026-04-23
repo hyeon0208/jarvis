@@ -6,8 +6,8 @@
  * 세션의 복잡도를 추적하고, 복잡한 작업 후 스킬 생성을 제안합니다.
  * auto-memory.js가 기록한 세션 상태를 읽어 판단합니다.
  *
- * 넛지 조건:
- * - 도구 호출 15회 이상
+ * 넛지 조건 (OR — 하나만 충족해도 뜸):
+ * - 도구 호출 8회 이상   (재사용 가치가 있는 반복 작업이 보통 이 근방에서 드러남)
  * - 파일 변경 5개 이상
  * - 경과 시간 30분 이상
  *
@@ -23,7 +23,7 @@ const SESSION_FILE = path.join(SESSIONS_DIR, `${SESSION_ID}.json`);
 const NUDGE_FILE = path.join(SESSIONS_DIR, `${SESSION_ID}.nudged`);
 
 // 복잡도 임계값
-const TOOL_THRESHOLD = 15;
+const TOOL_THRESHOLD = 8;
 const FILE_THRESHOLD = 5;
 const TIME_THRESHOLD_MIN = 30;
 
