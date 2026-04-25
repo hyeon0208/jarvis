@@ -25,7 +25,7 @@
 2. 토큰 이름: `jarvis-app-token`, 스코프 `connections:write` 자동 부여
 3. 발급된 **`xapp-`** 시작 토큰 복사 → 나중에 `SLACK_APP_TOKEN`으로 등록
 
-## 3. Bot Token Scopes (4개)
+## 3. Bot Token Scopes (7개)
 
 좌측 **OAuth & Permissions** → **Bot Token Scopes**에 추가:
 
@@ -37,6 +37,7 @@
 | `im:write` | DM 시작 가능 |
 | `app_mentions:read` | 채널에서 `@봇` 멘션 읽기 |
 | `users:read` | 멤버 이름 → user ID 변환 (macho가 "땡칠이 멘션해" 같은 요청을 처리하기 위해) |
+| `reactions:write` | 수신 ACK 이모지(`:thug-life:`) 부착 |
 
 ## 4. Event Subscriptions (2개)
 
@@ -188,6 +189,7 @@ jarvis_memory_stats
 | `socket mode disabled` | `SLACK_APP_TOKEN` 미설정/만료, 또는 Socket Mode가 Off |
 | DM 안 받음 | OAuth Scopes에 `im:history` 누락 |
 | 멘션 안 받음 | OAuth Scopes에 `app_mentions:read` 누락 또는 Event에 `app_mention` 미등록 |
+| 수신 이모지 반응 안 붙음 | OAuth Scope `reactions:write` 누락, 또는 워크스페이스에 `:thug-life:` 커스텀 이모지 없음. 로그의 `ack 반응 실패 … code=invalid_name` 확인 |
 | `jarvis doctor` Slack 항목 FAIL | 토큰 만료/revoke 또는 워크스페이스에서 앱 제거됨 |
 
 ---
