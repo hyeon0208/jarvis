@@ -1,8 +1,0 @@
-// 이 파일은 레거시입니다. 프로필 설정은 profiles.yml을 사용합니다.
-// 이 파일은 호환성을 위해 보관되며, 실제 로드되지 않습니다.
-//
-// 참고: packages/gateway-server/src/permissions.ts는 profiles.yml만 읽습니다.
-{
-  "legacy": true,
-  "replaced_by": "config/profiles.yml"
-}
