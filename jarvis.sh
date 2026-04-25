@@ -20,6 +20,17 @@ get_pid() {
   fi
 }
 
+# 실제 실행 중인 모든 데몬 PID를 찾는다 (pid 파일 밖에 떠 있는 고아 포함).
+# 패턴은 nohup 경로/상대경로 양쪽을 잡도록 충분히 포괄적으로.
+find_daemon_pids() {
+  pgrep -f "bun run .*gateway-server/src/daemon\\.ts" 2>/dev/null | sort -u
+}
+
+# 종료 대상 PID 목록 (pid 파일 + pgrep 결과 합집합)
+all_daemon_pids() {
+  { get_pid; find_daemon_pids; } | awk 'NF' | sort -u
+}
+
 is_running() {
   local pid=$(get_pid)
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
@@ -29,8 +40,15 @@ is_running() {
 }
 
 cmd_start() {
+  # pid 파일만 믿지 말고 실제 프로세스도 확인 (이중 기동 방지)
+  local orphans=$(find_daemon_pids)
   if is_running; then
     echo -e "${YELLOW}Jarvis는 이미 실행 중입니다 (PID: $(get_pid))${NC}"
+    return 1
+  fi
+  if [ -n "$orphans" ]; then
+    echo -e "${RED}pid 파일에 없는 데몬이 이미 떠 있습니다 (PID: $(echo $orphans | tr '\n' ' '))${NC}"
+    echo -e "${YELLOW}'jarvis stop' 먼저 실행해 전부 정리한 뒤 다시 시작하세요${NC}"
     return 1
   fi
 
@@ -55,29 +73,33 @@ cmd_start() {
 }
 
 cmd_stop() {
-  if ! is_running; then
+  # pid 파일 + pgrep 결과를 합쳐서 전부 종료 (고아 프로세스 포함)
+  local pids=$(all_daemon_pids)
+  if [ -z "$pids" ]; then
     echo -e "${YELLOW}Jarvis가 실행 중이 아닙니다${NC}"
-    # PID 파일 정리
     rm -f "$PID_FILE"
     return 0
   fi
 
-  local pid=$(get_pid)
-  echo -e "${YELLOW}Jarvis Daemon 종료 중... (PID: $pid)${NC}"
-  kill "$pid" 2>/dev/null
+  echo -e "${YELLOW}Jarvis Daemon 종료 중... (PID: $(echo $pids | tr '\n' ' '))${NC}"
+  echo "$pids" | xargs -n1 kill 2>/dev/null
 
   # 최대 10초 대기
   for i in $(seq 1 10); do
-    if ! kill -0 "$pid" 2>/dev/null; then
-      break
-    fi
+    local alive=""
+    for p in $pids; do
+      kill -0 "$p" 2>/dev/null && alive="$alive $p"
+    done
+    [ -z "$alive" ] && break
     sleep 1
   done
 
   # 아직 살아있으면 강제 종료
-  if kill -0 "$pid" 2>/dev/null; then
-    kill -9 "$pid" 2>/dev/null
-  fi
+  for p in $pids; do
+    if kill -0 "$p" 2>/dev/null; then
+      kill -9 "$p" 2>/dev/null
+    fi
+  done
 
   rm -f "$PID_FILE"
   echo -e "${GREEN}Jarvis Daemon 종료됨${NC}"
@@ -90,10 +112,12 @@ cmd_restart() {
 }
 
 cmd_status() {
+  local actual=$(find_daemon_pids)
+  local file_pid=$(get_pid)
+
   if is_running; then
-    local pid=$(get_pid)
     echo -e "${GREEN}● Jarvis Daemon 실행 중${NC}"
-    echo -e "  PID:  $pid"
+    echo -e "  PID:  $file_pid"
     echo -e "  로그: $LOG_FILE"
 
     # 활성 채널 확인
@@ -105,6 +129,17 @@ cmd_status() {
     fi
   else
     echo -e "${RED}● Jarvis Daemon 중지됨${NC}"
+  fi
+
+  # 이중 기동 / 고아 프로세스 경고 (pid 파일과 실제가 다르면 알림)
+  local actual_count=$(echo "$actual" | awk 'NF' | wc -l | tr -d ' ')
+  if [ "$actual_count" -gt 1 ]; then
+    echo -e "\n${RED}⚠ 데몬이 $actual_count개 동시에 떠 있습니다 (중복 응답 위험)${NC}"
+    echo -e "  실제 PID: $(echo $actual | tr '\n' ' ')"
+    echo -e "  조치: jarvis stop 후 jarvis start"
+  elif [ -n "$actual" ] && [ -n "$file_pid" ] && [ "$actual" != "$file_pid" ]; then
+    echo -e "\n${YELLOW}⚠ pid 파일($file_pid)과 실제 프로세스($actual)가 불일치${NC}"
+    echo -e "  조치: jarvis stop 후 jarvis start"
   fi
 }
 
