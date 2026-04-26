@@ -158,6 +158,7 @@ jarvis_memory_stats
 | 페어링 코드만 계속 나옴 | `jarvis pair list`에 코드가 있는지 → `jarvis pair approve` 안 함 |
 | 폴링 너무 느림 | `~/jarvis/config/channels.yml`의 `telegram.poll_interval_ms`(기본 1000) 조정 |
 | 동시에 두 데몬 실행 시 충돌 | 같은 봇 토큰을 다른 머신에서 동시 polling하면 안 됨. 한 곳만 |
+| 응답에 `**bold**`나 `# heading`이 그대로 보임 | 데몬이 Telegram 채널에 한해 plain-text 출력 지침을 시스템 프롬프트로 자동 주입함 (`packages/gateway-server/src/daemon.ts` `CHANNEL_OUTPUT_RULES`). 별도 설정 불필요. 모델이 가끔 무시하면 `jarvis restart`로 세션 새로 시작 |
 
 ---
 

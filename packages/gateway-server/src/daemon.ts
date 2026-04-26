@@ -45,6 +45,28 @@ const PROJECT_DIR = process.env.JARVIS_PROJECT_DIR ?? ""; // 프로젝트 디렉
 const SANDBOX_ROOT = join(JARVIS_DIR, "sandboxes"); // 유저별 cwd 샌드박스 (~/.jarvis/sandboxes/)
 
 /**
+ * 채널별 출력 형식 지침.
+ *
+ * 외부 채널(Telegram 등)은 plain-text UI라 모델이 디폴트로 뱉는 markdown
+ * (`**bold**`, `# heading`, ```code blocks``` 등)이 그대로 노출돼 가독성을 망친다.
+ * `parse_mode`를 켜는 대신 시스템 프롬프트에서 출력 자체를 plain-text로 강제한다
+ * (escape 실패로 메시지 전송이 깨질 위험을 회피).
+ *
+ * 채널 키는 user_id의 prefix(`telegram:`/`slack:`/`discord:`)와 일치한다.
+ * Slack/Discord는 자체 markdown을 잘 렌더링하므로 일단 추가하지 않는다 (KISS).
+ */
+const CHANNEL_OUTPUT_RULES: Record<string, string> = {
+  telegram:
+    "응답은 Telegram chat의 plain text로 표시된다. " +
+    "**bold**, *italic*, `code`, ```code blocks```, # headings 같은 마크다운 문법을 절대 사용하지 마라. " +
+    "강조가 필요하면 줄바꿈이나 \"따옴표\"로 표현하고, 목록은 하이픈(- )이나 가운뎃점(·)만 사용하라.",
+};
+
+function getChannelFromUserId(userId: string): string {
+  return userId.includes(":") ? userId.split(":")[0] : "owner";
+}
+
+/**
  * 유저별 빈 샌드박스 디렉토리를 보장하고 절대 경로를 반환합니다.
  *
  * 목적: claude 자식 프로세스의 cwd를 빈 디렉토리로 강제해서
@@ -163,8 +185,16 @@ async function executeWithClaude(
     userId,
   );
 
+  // 채널별 출력 형식 지침을 personality 뒤에 합성.
+  // 예: Telegram은 plain-text UI라 markdown 금지 규칙을 강제 (CHANNEL_OUTPUT_RULES 참고).
+  const channel = getChannelFromUserId(userId);
+  const outputRule = CHANNEL_OUTPUT_RULES[channel];
+  const combinedPrompt = outputRule
+    ? `${personalityPrompt}\n\n${outputRule}`
+    : personalityPrompt;
+
   const args = buildClaudeArgs(profileName, {
-    systemPrompt: personalityPrompt,
+    systemPrompt: combinedPrompt,
     projectDir: workDir,
   });
 
@@ -206,8 +236,6 @@ async function executeWithClaude(
     // 환경변수로 user_id를 주입하면 claude 자식 → MCP 서버 → IntentGate 훅까지
     // 모두 이 환경변수를 상속받아 자동으로 올바른 유저 컨텍스트로 동작합니다.
     // (LLM 자율성 의존 X, OS 프로세스 환경변수로 100% 보장)
-    const channelName = userId.includes(":") ? userId.split(":")[0] : "owner";
-
     // cwd 정책:
     //   · workDir(예: /dev worktree)이 명시되면 무조건 그쪽
     //   · thread scope(스레드 공유 세션)이면 스레드 공용 샌드박스
@@ -233,7 +261,7 @@ async function executeWithClaude(
         ...process.env,
         JARVIS_USER_ID: userId,
         JARVIS_USER_NAME: userName ?? "",
-        JARVIS_CHANNEL: channelName,
+        JARVIS_CHANNEL: channel,
       },
     });
 
