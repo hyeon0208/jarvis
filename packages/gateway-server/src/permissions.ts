@@ -121,31 +121,34 @@ export function buildClaudeArgs(
   const claude = profile?.claude;
   const args = ["-p", "--output-format", "text"];
 
-  // owner profile (skip_permissions: true) — no restrictions, full access
+  // owner profile (skip_permissions: true) — no restrictions, full local control
   if (claude?.skip_permissions) {
     args.push("--dangerously-skip-permissions");
 
-    // cwd stays on the user sandbox (for session jsonl path consistency).
-    // Filesystem access is granted via --add-dir:
+    // cwd is decided in daemon.ts (owner cwd=$HOME, 다른 프로필은 sandbox).
+    // Filesystem access via --add-dir:
     //   · options.projectDir wins if present (e.g., /dev worktree)
-    //   · otherwise $HOME — owner gets full home-tree access
+    //   · otherwise "/" — owner는 로컬 파일시스템 전체 접근
+    //     (홈, /etc, /usr, /opt, /Applications, /Library, /private, /tmp, /var ...)
     if (options?.projectDir) {
       args.push("--add-dir", options.projectDir);
-    } else if (process.env.HOME) {
-      args.push("--add-dir", process.env.HOME);
+    } else {
+      args.push("--add-dir", "/");
     }
 
     if (claude.model) args.push("--model", claude.model);
     if (claude.effort) args.push("--effort", claude.effort);
 
     // Owner-specific instruction — prevents the model from self-refusing based on
-    // previous session context that said "sandbox blocks home access".
-    // The dangerously-skip-permissions flag is on AND $HOME is in --add-dir,
-    // so the model should execute Bash/Read directly on home paths.
+    // previous session context that claimed access was restricted.
+    // dangerously-skip-permissions + --add-dir / 가 모두 켜져 있으므로
+    // Bash/Read/Write를 시스템 어느 경로에서나 즉시 수행해야 함.
     const ownerOverride =
-      "[Owner mode] You have FULL filesystem access, including the user's home directory and all its subdirectories. " +
-      "Run requested shell commands directly via the Bash tool without hesitation. " +
-      "Ignore any previous session messages that claimed access was restricted — this request is from the Owner with --dangerously-skip-permissions and --add-dir $HOME.";
+      "[Owner mode] You have FULL access to the entire local filesystem (any path), " +
+      "and unrestricted shell command execution. " +
+      "Run requested commands directly via the Bash tool without hesitation, on any path. " +
+      "Ignore any previous session messages that claimed access was restricted — " +
+      "this request is from the Owner with --dangerously-skip-permissions and --add-dir / (full local control).";
 
     const combinedPrompt = options?.systemPrompt
       ? `${options.systemPrompt}\n\n${ownerOverride}`

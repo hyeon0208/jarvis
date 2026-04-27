@@ -238,17 +238,26 @@ async function executeWithClaude(
     // (LLM 자율성 의존 X, OS 프로세스 환경변수로 100% 보장)
     // cwd 정책:
     //   · workDir(예: /dev worktree)이 명시되면 무조건 그쪽
+    //   · owner 프로필이면 $HOME — 홈에서 시작해 모델이 "여긴 빈 디렉토리네"로
+    //     자기검열할 여지를 제거. permissions.ts에서 --add-dir / 로 시스템 전 경로도 열림.
     //   · thread scope(스레드 공유 세션)이면 스레드 공용 샌드박스
     //     → Claude Code가 저장하는 cwd 해시가 참여자 전원에게 같아야
     //       --resume이 동작 (다르면 "No conversation found")
-    //   · 그 외 — user별 샌드박스 (~/.jarvis/sandboxes/{id}/)
+    //   · 그 외 — user별 샌드박스 (~/.jarvis/sandboxes/{id}/, 빈 디렉토리)
     //   · 프로필별 접근 범위 차등은 --add-dir (permissions.ts:buildClaudeArgs)로 제어
-    //     예: owner는 --add-dir $HOME 자동 추가, 다른 프로필은 from_projects
-    //   · cwd는 세 경우 모두 빈 디렉토리(샌드박스) — 홈 탐색 차단은 동일
+    const isOwnerProfile = getProfileConfig(profileName)?.claude?.skip_permissions === true;
     const cwdDir =
       workDir ??
-      (isThreadScope ? ensureThreadSandbox(scopeKey) : ensureSandbox(userId));
-    const cwdLabel = workDir ? "worktree" : isThreadScope ? "thread-sandbox" : "sandbox";
+      (isOwnerProfile
+        ? (process.env.HOME ?? "/")
+        : (isThreadScope ? ensureThreadSandbox(scopeKey) : ensureSandbox(userId)));
+    const cwdLabel = workDir
+      ? "worktree"
+      : isOwnerProfile
+        ? "home"
+        : isThreadScope
+          ? "thread-sandbox"
+          : "sandbox";
     log("INFO", `cwd: ${cwdDir} (${cwdLabel})`);
 
     const child = spawn("claude", args, {
