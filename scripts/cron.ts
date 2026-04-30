@@ -16,16 +16,12 @@
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import {
   buildClaudeArgs,
   buildPersonalityPrompt,
 } from "../packages/gateway-server/src/permissions.js";
-import {
-  getOrCreateClaudeSessionId,
-  markClaudeSessionStarted,
-  hasClaudeSessionJsonl,
-} from "../packages/gateway-server/src/auth.js";
 import { createEnabledAdapters } from "../packages/gateway-server/src/adapters/registry.js";
 import { loadEnvFile } from "./lib/config.js";
 
@@ -151,12 +147,10 @@ async function cmdRun(jobId: string, opts: { send: boolean }): Promise<void> {
     systemPrompt: personalityPrompt,
   });
 
-  // 세션 연속성 유지 — jsonl 존재 여부로 ground truth 판단
-  const sessionHandle = getOrCreateClaudeSessionId(user.user_id);
-  const sessionExists =
-    sessionHandle.started || hasClaudeSessionJsonl(sessionHandle.session_id);
-  const sessionFlag = sessionExists ? "--resume" : "--session-id";
-  args.push(sessionFlag, sessionHandle.session_id);
+  // cron은 매 실행마다 새 세션 — 이전 대화 맥락에 의존하지 않음
+  // (사용자별 메모리 격리는 JARVIS_USER_ID 환경변수로 보장)
+  const sessionId = randomUUID();
+  args.push("--session-id", sessionId);
 
   // prompt는 모든 플래그 뒤, `--` 분리자 다음 (옵션 파싱 회피)
   args.push("--", job.prompt);
@@ -164,7 +158,7 @@ async function cmdRun(jobId: string, opts: { send: boolean }): Promise<void> {
   const cwdDir = ensureSandbox(user.user_id);
   const channelName = user.user_id.includes(":") ? user.user_id.split(":")[0] : "owner";
 
-  console.log(`${DIM}executing: claude ... ${sessionFlag} ${sessionHandle.session_id.slice(0, 8)}... (cwd=${cwdDir})${RESET}\n`);
+  console.log(`${DIM}executing: claude ... --session-id ${sessionId.slice(0, 8)}... (cwd=${cwdDir})${RESET}\n`);
 
   const startedAt = Date.now();
   const child = spawn("claude", args, {
@@ -196,9 +190,6 @@ async function cmdRun(jobId: string, opts: { send: boolean }): Promise<void> {
     if (stderr) console.error(`${DIM}stderr: ${stderr.slice(0, 500)}${RESET}`);
     process.exit(1);
   }
-
-  // 정상 종료 → started 플래그 정정 (jsonl 존재로 resume한 경우도 동기화)
-  if (!sessionHandle.started) markClaudeSessionStarted(user.user_id);
 
   const response = stdout.trim();
   console.log(`${GREEN}✓ 완료 (${elapsed}s, ${response.length}자)${RESET}\n`);
