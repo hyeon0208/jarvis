@@ -11,6 +11,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { routeMessage, type IncomingMessage } from "./router.js";
@@ -34,6 +35,7 @@ import {
 } from "./auth.js";
 import { addCronJob, listCronJobs, deleteCronJob, toggleCronJob } from "./cron.js";
 import { maskTokens } from "./log-safe.js";
+import { formatClaudeError } from "./claude-error.js";
 // worktree는 workflow.ts가 관리 (router → workflow → worktree)
 
 // --- 설정 ---
@@ -158,6 +160,12 @@ async function executeWithClaude(
      * userId와 동일한 값이면 user 단위 저장소 사용, 다르면 thread-sessions.json 사용.
      */
     sessionScopeKey?: string;
+    /**
+     * true면 매 호출마다 새 UUID로 --session-id 사용 (resume 안 함).
+     * cron처럼 이전 대화 맥락이 필요 없는 stateless 트리거에 사용.
+     * 메모리 격리는 JARVIS_USER_ID 환경변수로 별도 보장됨.
+     */
+    freshSession?: boolean;
   },
 ): Promise<string> {
 
@@ -208,12 +216,18 @@ async function executeWithClaude(
   // (여러 사용자가 같은 scopeKey로 들어와 같은 UUID에 --resume)
   const scopeKey = options?.sessionScopeKey ?? userId;
   const isThreadScope = scopeKey !== userId;
-  const sessionHandle = isThreadScope
-    ? getOrCreateThreadSessionId(scopeKey)
-    : getOrCreateClaudeSessionId(userId);
+  // freshSession=true면 매번 새 UUID로 --session-id (cron 등 stateless 트리거)
+  const freshSession = options?.freshSession === true;
+  const sessionHandle = freshSession
+    ? { session_id: randomUUID(), started: false }
+    : isThreadScope
+      ? getOrCreateThreadSessionId(scopeKey)
+      : getOrCreateClaudeSessionId(userId);
   // 분기 기준: started 플래그와 실제 jsonl 존재 여부를 모두 확인.
   // 어느 쪽이든 true면 이미 세션이 있다는 의미 → --resume (ground truth 우선)
-  const sessionExists = sessionHandle.started || hasClaudeSessionJsonl(sessionHandle.session_id);
+  const sessionExists =
+    !freshSession &&
+    (sessionHandle.started || hasClaudeSessionJsonl(sessionHandle.session_id));
   if (sessionExists) {
     args.push("--resume", sessionHandle.session_id);
   } else {
@@ -287,26 +301,28 @@ async function executeWithClaude(
 
     child.on("close", (code) => {
       if (code !== 0) {
-        log("ERROR", `claude 종료 코드=${code}, stderr=${stderr.slice(0, 200)}`);
-        resolve(`오류가 발생했습니다. (코드: ${code})`);
-      } else {
-        // 정상 종료 → 세션이 실제로 생성됨(또는 재사용됨)
-        // started 플래그를 true로 정정 (jsonl 존재로 resume한 경우도 플래그 동기화)
-        if (!sessionHandle.started) {
-          if (isThreadScope) {
-            markThreadSessionStarted(scopeKey);
-          } else {
-            markClaudeSessionStarted(userId);
-          }
-        }
-        log("INFO", `claude 완료: ${stdout.length}자 응답`);
-        resolve(stdout.trim() || "응답이 비어있습니다.");
+        const error = formatClaudeError({ code, stderr, stdout });
+        log("ERROR", `claude ${error.logSummary}`);
+        resolve(error.userMessage);
+        return;
       }
+      // 정상 종료 → 세션이 실제로 생성됨(또는 재사용됨)
+      // started 플래그를 true로 정정 (jsonl 존재로 resume한 경우도 플래그 동기화)
+      if (!sessionHandle.started) {
+        if (isThreadScope) {
+          markThreadSessionStarted(scopeKey);
+        } else {
+          markClaudeSessionStarted(userId);
+        }
+      }
+      log("INFO", `claude 완료: ${stdout.length}자 응답`);
+      resolve(stdout.trim() || "응답이 비어있습니다.");
     });
 
     child.on("error", (err) => {
-      log("ERROR", `claude 실행 실패: ${err.message}`);
-      resolve(`실행 실패: ${err.message}`);
+      const error = formatClaudeError({ code: null, stderr: err.message, stdout: "" });
+      log("ERROR", `claude 실행 실패: ${error.logSummary}`);
+      resolve(error.userMessage);
     });
   });
 }
@@ -640,10 +656,13 @@ async function main(): Promise<void> {
   await startAdapters();
 
   // Cron runner 시작 — 모든 user의 cron_jobs를 1분 간격으로 체크
+  // cron은 stateless 트리거 → freshSession=true (이전 대화 맥락에 의존 X)
   const stopCronRunner = startCronRunner({
     adapters: activeAdapters,
     execute: async ({ prompt, userId, profile, userName, personality }) => {
-      return executeWithClaude(prompt, profile, userId, personality, userName);
+      return executeWithClaude(prompt, profile, userId, personality, userName, undefined, {
+        freshSession: true,
+      });
     },
     log,
   });
