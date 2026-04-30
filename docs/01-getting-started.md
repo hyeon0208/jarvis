@@ -173,6 +173,12 @@ Jarvis는 **두 개의 디렉토리**를 사용합니다:
 - [ ] 본인이 먼저 `@Jarvis 안녕` 호출 → 자동 페어링 + macho 응답 → 필요 시 `jarvis user profile slack:U... owner` 로 본인만 승격
 - [ ] `jarvis user ls` 로 등록된 멤버 확인 (AUTO 열이 `✓`면 자동 페어링)
 
+### 데몬으로 cron(자동 브리핑 등)을 운영할 때
+
+데몬을 24시간 띄우고 모닝 브리핑 같은 cron job을 돌릴 계획이라면, **Claude 구독 OAuth 토큰이 약 24시간 만료**되어 cron이 매일 같은 시각부터 `Not logged in` 으로 떨어지는 문제를 만나게 됩니다. `claude setup-token`으로 long-lived token을 발급해 `~/jarvis/.env`에 주입하면 구독은 그대로 유지되며 만료 없이 동작합니다.
+
+→ 단계별 가이드: [03-daemon.md — Claude 구독 토큰 매일 만료](03-daemon.md#claude-구독-토큰-매일-만료-cron이-매일-새벽-실패)
+
 ### 공통 정리
 
 시나리오가 무엇이든, 이 문서들은 한 번씩 훑어두면 좋습니다:
